@@ -31,7 +31,7 @@ class BlenderDataset(Dataset):
                 data = json.load(json_file)
                 self.rgb_images.append(fname + '_render.png')
                 self.depth_images.append(fname + '_depth.exr')
-                if data['label'] not in self.ids: 
+                if data['label'] not in self.ids:
                     self.ids[data['label']] = idx
                     idx = idx + 1
                 self.labels.append(self.ids[data['label']])

@@ -1,12 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-import numpy as np
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
+
 
 class ConvNet(nn.Module):
     def __init__(self):
@@ -21,17 +19,18 @@ class ConvNet(nn.Module):
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 125 * 125)       
-        x = F.relu(self.fc1(x))               
-        x = F.relu(self.fc2(x))              
-        x = self.fc3(x)                       
+        x = x.view(-1, 16 * 125 * 125)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
         return x
+
 
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     num_epochs = 5
-    batch_size = 4
+    batch_size = 2
     learning_rate = 0.001
 
     render_transform = transforms.Compose([
@@ -50,11 +49,17 @@ if __name__ == '__main__':
         transforms.Normalize((0.5,), (0.5,)),
     ])
 
-    train_dataset = BlenderDataset(root_dir='C:/dev/blenderRenderer/output', render_transform=render_transform, depth_transform=depth_transform, train=True)
+    train_dataset = BlenderDataset(root_dir='C:/dev/blenderRenderer/output',
+                                   render_transform=render_transform, depth_transform=depth_transform, train=True)
+    test_dataset = BlenderDataset(root_dir='C:/dev/blenderRenderer/train',
+                                  render_transform=render_transform, depth_transform=depth_transform, train=False)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False)
 
-    classes = ('object09', 'object19', 'object27')
+    classes = ('object01', 'object02', 'object03')
 
     model = ConvNet().to(device)
 
@@ -63,7 +68,7 @@ if __name__ == '__main__':
 
     n_total_steps = len(train_loader)
     for epoch in range(num_epochs):
-        for i, (images, depth_images, labels) in enumerate(train_loader):
+        for images, depth_images, labels in train_loader:
             images = images.to(device)
             labels = labels.to(device)
 
@@ -74,9 +79,32 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-            if (i+1) % 2000 == 0:
-                print (f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{n_total_steps}], Loss: {loss.item():.4f}')
+        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
 
     print('Finished Training')
     PATH = './cnn.pth'
     torch.save(model.state_dict(), PATH)
+
+    with torch.no_grad():
+        n_correct = 0
+        n_samples = 0
+        n_class_correct = [0 for i in range(10)]
+        n_class_samples = [0 for i in range(10)]
+        for images, depth_images, labels in test_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+
+            _, predicted = torch.max(outputs, 1)
+            n_samples += labels.size(0)
+            n_correct += (predicted == labels).sum().item()
+
+            for i in range(batch_size):
+                label = labels[i]
+                pred = predicted[i]
+                if (label == pred):
+                    n_class_correct[label] += 1
+                n_class_samples[label] += 1
+
+        acc = 100.0 * n_correct / n_samples
+        print(f'Accuracy of the network: {acc} %')
