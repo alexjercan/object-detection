@@ -22,9 +22,10 @@ class BlenderDataset(Dataset):
         json_fnames = [f for f in listdir(root_dir) if (isfile(join(root_dir, f)) and f.endswith('.json'))]
         for json_fname in json_fnames:
             with open(join(root_dir, json_fname), 'r') as json_file:
+                fname = json_fname.split('.')[0]
                 data = json.load(json_file)
-                self.rgb_images.append(data['render_fname'])
-                self.depth_images.append(data['depth_fname'])
+                self.rgb_images.append(fname + '_render.png')
+                self.depth_images.append(fname + '_depth.exr')
                 self.labels.append(data['label'])
         self.num_classes = len(set(self.labels))
 
