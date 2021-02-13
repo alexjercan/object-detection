@@ -48,7 +48,7 @@ class BlenderDataset(Dataset):
         return data, depth_data, self.labels[idx]
 
 
-def exr2depth(exr, maxvalue=1.,normalize=True):                                                               
+def exr2depth(exr):                                                               
     file = OpenEXR.InputFile(exr)
 
     dw = file.header()['dataWindow']
@@ -60,11 +60,10 @@ def exr2depth(exr, maxvalue=1.,normalize=True):
     img = np.zeros((sz[1], sz[0], 3), np.float64)
 
     data = np.array(R)
+    maxvalue = np.max(np.where(np.isinf(data), -np.Inf, data))
     data[data > maxvalue] = maxvalue
-
-    if normalize:
-        data /= np.max(data)
-
+    data /= maxvalue
+    
     img = np.array(data).astype(np.float32).reshape(img.shape[0], -1)
 
     return img
