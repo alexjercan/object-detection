@@ -1,9 +1,8 @@
 from __future__ import print_function, division
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
-from os import listdir
 import json
-from os.path import isfile, join
+from os.path import join
 import OpenEXR
 import Imath
 import array
@@ -11,7 +10,7 @@ import numpy as np
 
 
 class BlenderDataset(Dataset):
-    def __init__(self, root_dir, render_transform=None, depth_transform=None, train=False):
+    def __init__(self, root_dir, cvs_fname, render_transform=None, depth_transform=None, train=False):
         self.rgb_images = []
         self.depth_images = []
         self.ids = {}
@@ -22,8 +21,10 @@ class BlenderDataset(Dataset):
         self.num_classes = 0
         self.train = train
 
-        json_fnames = [f for f in listdir(root_dir) if (
-            isfile(join(root_dir, f)) and f.endswith('.json'))]
+        json_fnames = []
+        with open(join(root_dir, cvs_fname), 'r') as fd:
+            json_fnames = fd.read().splitlines()
+
         idx = 0
         for json_fname in json_fnames:
             with open(join(root_dir, json_fname), 'r') as json_file:
@@ -91,18 +92,23 @@ def test_dataset():
         transforms.Resize((512, 512)),
         transforms.ToTensor(),
     ])
-    blender_data = BlenderDataset(root, transform_val, transform_val, True)
+    blender_data = BlenderDataset(root, "train.csv", transform_val, transform_val, True)
     print(blender_data.num_classes)
     dataloader = DataLoader(blender_data, batch_size=2, shuffle=True)
     for data in dataloader:
         images, depth_images, labels = data
         print(images.size(), depth_images.size(), labels)
+        break
 
-    transforms.ToPILImage()(images[0]).show()
     import matplotlib.pyplot as plt
-    plt.figure()
-    plt.imshow(depth_images.numpy()[0][0])
-    plt.colorbar()
+    import torchvision
+    fig=plt.figure(figsize=(2, 1))
+    npimg = torchvision.utils.make_grid(images).numpy()
+    fig.add_subplot(2, 1, 1)
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+    npdepth = torchvision.utils.make_grid(depth_images).numpy()
+    fig.add_subplot(2, 1, 2)
+    plt.imshow(np.transpose(npdepth, (1, 2, 0)))
     plt.show()
 
 
