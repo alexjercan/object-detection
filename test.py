@@ -12,7 +12,7 @@ def get_args():
     parser.add_argument('--dataset_path', type=str, default=None)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--use_gpu', action="store_true", default=True)
-    parser.add_argument('--save_path', type=str, default='./cnn.pth')
+    parser.add_argument('--checkpoint', type=str, default='./checkpoint.pth')
 
     args = parser.parse_args()
     return args
@@ -20,8 +20,9 @@ def get_args():
 
 if __name__ == '__main__':
     args = get_args()
-    device = torch.device('cuda' if torch.cuda.is_available()
-                          and args.use_gpu else 'cpu')
+
+    use_cuda = torch.cuda.is_available() and args.use_gpu
+    device = torch.device('cuda' if use_cuda else 'cpu')
 
     batch_size = args.batch_size
 
@@ -46,12 +47,11 @@ if __name__ == '__main__':
     test_loader = DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False)
 
-    classes = ('object01', 'object02', 'object03')
+    model = ConvNet(3)
 
-    model = ConvNet(len(classes)).to(device)
-
-    PATH = args.save_path
-    model.load_state_dict(torch.load(PATH))
+    checkpoint = torch.load(args.checkpoint, map_location=device)
+    model.load_state_dict(checkpoint["model_state"])
+    model.to(device)
     model.eval()
 
     with torch.no_grad():

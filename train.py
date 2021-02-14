@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.optim
 import torchvision.transforms as transforms
 from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
@@ -14,8 +15,9 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--learning_rate', type=float, default=0.001)
-    parser.add_argument('--use_gpu', action="store_true", default=True)
-    parser.add_argument('--save_path', type=str, default='./cnn.pth')
+    parser.add_argument('--use_gpu', action="store_true", default=False)
+    parser.add_argument('--output_path', type=str, default='./checkpoint.pth')
+    parser.add_argument('--checkpoint', type=str, default=None)
 
     args = parser.parse_args()
     return args
@@ -24,9 +26,10 @@ def get_args():
 if __name__ == '__main__':
     args = get_args()
 
-    device = torch.device('cuda' if torch.cuda.is_available()
-                          and args.use_gpu else 'cpu')
+    use_cuda = torch.cuda.is_available() and args.use_gpu
+    device = torch.device('cuda' if use_cuda else 'cpu')
 
+    epoch = 0
     num_epochs = args.epochs
     batch_size = args.batch_size
     learning_rate = args.learning_rate
@@ -52,15 +55,20 @@ if __name__ == '__main__':
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True)
 
-    classes = ('object01', 'object02', 'object03')
-
-    model = ConvNet(len(classes)).to(device)
+    model = ConvNet(no_classes=3)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
-    n_total_steps = len(train_loader)
-    for epoch in range(num_epochs):
+    if args.checkpoint:
+        checkpoint = torch.load(args.checkpoint, map_location=device)
+        epoch = checkpoint["epoch"]
+        model.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+
+    model = model.to(device)
+
+    for epoch in range(epoch, num_epochs):
         for images, depth_images, labels in train_loader:
             images = images.to(device)
             depth_images = depth_images.to(device)
@@ -73,8 +81,11 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
+        torch.save({
+            "epoch": epoch + 1,
+            "model_state": model.state_dict(),
+            "optimizer_state": optimizer.state_dict()
+        }, args.output_path)
         print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
 
     print('Finished Training')
-    PATH = args.save_path
-    torch.save(model.state_dict(), PATH)
