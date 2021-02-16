@@ -22,7 +22,7 @@ class ConvNet(nn.Module):
         # n x 6 x 254 x 254
         rgb = F.relu(self.conv2(rgb))
         # n x 16 x 250 x 250
-        rgb = self.pool()
+        rgb = self.pool(rgb)
         # n x 16 x 125 x 125
         rgb = rgb.view(-1, 16 * 125 * 125)
         # n x 16 * 125 * 125
