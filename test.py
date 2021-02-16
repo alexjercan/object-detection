@@ -47,7 +47,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False)
 
-    model = ConvNet(3)
+    model = ConvNet(no_classes=3)
 
     checkpoint = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(checkpoint["model_state"])
