@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
 from model.rgb_depth_model import ConvNet
-
+from model.resnet import resnet101
 
 def get_args():
     parser = ArgumentParser(
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     render_transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.ToPILImage(),
-        transforms.Resize((512, 512)),
+        transforms.Resize((256, 256)),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     depth_transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.ToPILImage(),
-        transforms.Resize((512, 512)),
+        transforms.Resize((256, 256)),
         transforms.ToTensor(),
         transforms.Normalize((0.5,), (0.5,)),
     ])
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True)
 
-    model = ConvNet(no_classes=3)
+    model = ConvNet(num_classes=3)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
