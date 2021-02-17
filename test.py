@@ -3,8 +3,7 @@ import torchvision.transforms as transforms
 from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
-from model.rgb_depth_model import ConvNet
-from model.resnet import resnet101
+from model.depthnet import depthnet152
 
 
 def get_args():
@@ -48,7 +47,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False)
 
-    model = ConvNet(num_classes=3)
+    model = depthnet152(num_classes=3)
 
     checkpoint = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(checkpoint["model_state"])

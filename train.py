@@ -5,8 +5,7 @@ import torchvision.transforms as transforms
 from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
-from model.rgb_depth_model import ConvNet
-from model.resnet import resnet101
+from model.depthnet import depthnet152
 
 def get_args():
     parser = ArgumentParser(
@@ -55,7 +54,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True)
 
-    model = ConvNet(num_classes=3)
+    model = depthnet152(num_classes=3, zero_init_residual=True)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
