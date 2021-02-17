@@ -9,6 +9,7 @@ from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
 from model.depthnet import DepthNet, depthnet152, depthnet18
 from torchvision.models.resnet import ResNet, resnet152, resnet18
+from time import time
 
 
 def get_args():
@@ -43,7 +44,6 @@ if __name__ == '__main__':
 
     use_cuda = torch.cuda.is_available() and args.use_gpu
     device = torch.device('cuda' if use_cuda else 'cpu')
-
 
     epoch = 0
     num_epochs = args.epochs
@@ -88,6 +88,7 @@ if __name__ == '__main__':
 
     n_total_steps = len(train_loader)
     for epoch in range(epoch, num_epochs):
+        t1 = time()
         for i, (images, depth_images, labels) in enumerate(train_loader):
             images: Tensor = images.to(device)
             depth_images: Tensor = depth_images.to(device)
@@ -100,7 +101,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 10 == 0:
                 print (f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
 
         torch.save({
@@ -108,6 +109,7 @@ if __name__ == '__main__':
             "model_state": model.state_dict(),
             "optimizer_state": optimizer.state_dict()
         }, args.output_path)
-        print(f'Epoch [{epoch + 1}/{num_epochs}, Step [{n_total_steps}/{n_total_steps}], Loss: {loss.item():.4f}')
+        t2 = time()
+        print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{n_total_steps}/{n_total_steps}], Loss: {loss.item():.4f}, Time: {(t2 - t1):.4f}s')
 
     print('Finished Training')
