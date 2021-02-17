@@ -7,8 +7,8 @@ import torchvision.transforms as transforms
 from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
-from model.depthnet import DepthNet, depthnet152
-from torchvision.models.resnet import ResNet, resnet152
+from model.depthnet import DepthNet, depthnet152, depthnet18
+from torchvision.models.resnet import ResNet, resnet152, resnet18
 
 
 def get_args():
@@ -29,7 +29,7 @@ def get_args():
 
 
 def _model(use_resnet: bool):
-    return resnet152 if use_resnet else depthnet152
+    return resnet18 if use_resnet else depthnet18
 
 
 def forward(model: Union[ResNet, DepthNet], images: Tensor, depth_images: Tensor) -> Tensor:

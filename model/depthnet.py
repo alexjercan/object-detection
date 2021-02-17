@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torchvision.models.resnet import BasicBlock, Bottleneck, conv1x1
 
@@ -7,7 +8,9 @@ class DepthNet(nn.Module):
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False):
         super(DepthNet, self).__init__()
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.conv3 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
@@ -17,7 +20,9 @@ class DepthNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc1 = nn.Linear(512 * block.expansion, 512)
+        self.fc2 = nn.Linear(1024, 256)
+        self.fc3 = nn.Linear(256, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -53,8 +58,8 @@ class DepthNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, _):
-        x = self.conv1(x)
+    def forward(self, x, y):
+        x = self.conv3(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
@@ -66,9 +71,30 @@ class DepthNet(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        x = self.fc1(x)
+        x = self.relu(x)
 
-        return x
+        y = self.conv1(y)
+        y = self.bn1(y)
+        y = self.relu(y)
+        y = self.maxpool(y)
+
+        y = self.layer1(y)
+        y = self.layer2(y)
+        y = self.layer3(y)
+        y = self.layer4(y)
+
+        y = self.avgpool(y)
+        y = y.view(y.size(0), -1)
+        y = self.fc1(y)
+        y = self.relu(y)
+
+        z = torch.cat((x.view(x.size(0), -1), y.view(y.size(0), -1)), dim=1)
+        z = self.fc2(z)
+        z = self.relu(z)
+        z = self.fc3(z)
+
+        return z
 
 
 def depthnet18(pretrained=False, **kwargs):
