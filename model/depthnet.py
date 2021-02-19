@@ -7,14 +7,32 @@ class DepthNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False):
         super(DepthNet, self).__init__()
+        self.depth_module = DepthModule(out_size=512)
+        self.resnet_module = ResnetModule(
+            block, layers, zero_init_residual, out_size=512)
+        self.relu = nn.ReLU(inplace=True)
+        self.fc1 = nn.Linear(512 * 2, 256)
+        self.fc2 = nn.Linear(256, num_classes)
+
+    def forward(self, x, y):
+        x = self.resnet_module(x)
+        y = self.depth_module(y)
+
+        z = torch.cat((x.view(x.size(0), -1), y.view(y.size(0), -1)), dim=1)
+        z = self.fc1(z)
+        z = self.relu(z)
+        z = self.fc2(z)
+
+        return z
+
+
+class ResnetModule(nn.Module):
+
+    def __init__(self, block, layers, zero_init_residual=False, out_size=512):
+        super(ResnetModule, self).__init__()
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=11, stride=2, padding=5,
-                               bias=False)
         self.conv3 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
-        self.conv16 = nn.Conv2d(16, 64, kernel_size=11, stride=4, padding=5,
-                               bias=False)
-        self.bn16 = nn.BatchNorm2d(16)
         self.bn64 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -23,10 +41,7 @@ class DepthNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fcd = nn.Linear(4096, 512)
-        self.fc1 = nn.Linear(512 * block.expansion, 512)
-        self.fc2 = nn.Linear(512 * 2, 256)
-        self.fc3 = nn.Linear(256, num_classes)
+        self.fc = nn.Linear(512 * block.expansion, out_size)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -62,7 +77,7 @@ class DepthNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, y):
+    def forward(self, x):
         x = self.conv3(x)
         x = self.bn64(x)
         x = self.relu(x)
@@ -75,9 +90,27 @@ class DepthNet(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        x = self.fc1(x)
+        x = self.fc(x)
         x = self.relu(x)
 
+        return x
+
+
+class DepthModule(nn.Module):
+
+    def __init__(self, out_size=512):
+        super(DepthModule, self).__init__()
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=11, stride=2, padding=5,
+                               bias=False)
+        self.conv16 = nn.Conv2d(16, 64, kernel_size=11, stride=4, padding=5,
+                                bias=False)
+        self.bn16 = nn.BatchNorm2d(16)
+        self.bn64 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.fc = nn.Linear(4096, out_size)
+
+    def forward(self, y):
         y = self.conv1(y)
         y = self.bn16(y)
         y = self.relu(y)
@@ -89,15 +122,10 @@ class DepthNet(nn.Module):
         y = self.maxpool(y)
 
         y = y.view(y.size(0), -1)
-        y = self.fcd(y)
-        y = self.relu(y) 
+        y = self.fc(y)
+        y = self.relu(y)
 
-        z = torch.cat((x.view(x.size(0), -1), y.view(y.size(0), -1)), dim=1)
-        z = self.fc2(z)
-        z = self.relu(z)
-        z = self.fc3(z)
-
-        return z
+        return y
 
 
 def depthnet18(pretrained=False, **kwargs):

@@ -7,6 +7,7 @@ from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
 from model.depthnet import DepthNet, depthnet152, depthnet18
 from torchvision.models.resnet import ResNet, resnet152, resnet18
+from time import time
 
 
 def get_args():
@@ -72,9 +73,11 @@ if __name__ == '__main__':
     model.eval()
 
     with torch.no_grad():
+        t1 = time()
         n_correct = 0
         n_samples = 0
-        for images, depth_images, labels in test_loader:
+        n_total_steps = len(test_loader)
+        for i, (images, depth_images, labels) in enumerate(test_loader):
             images: Tensor = images.to(device)
             depth_images: Tensor = depth_images.to(device)
             labels: Tensor = labels.to(device)
@@ -85,5 +88,9 @@ if __name__ == '__main__':
             n_samples += labels.size(0)
             n_correct += (predicted == labels).sum().item()
 
+            if (i + 1) % 10 == 0:
+                print (f'Step [{i + 1}/{n_total_steps}]')
+
+        t2 = time()
         acc = 100.0 * n_correct / n_samples
-        print(f'Accuracy of the network: {acc} %')
+        print(f'Accuracy: {acc}%, Time: {(t2 - t1):.4f}s')
