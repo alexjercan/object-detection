@@ -37,15 +37,15 @@ def print_info(images, bboxes, predictions, classes):
     _, axs = plt.subplots(nrows=n, ncols=n)
     images = images / 2 + 0.5
     npimgs = np.transpose(np.array(images), (0, 2, 3, 1))
-    npbboxes = np.array(bboxes)
+    print(axs.shape)
 
     for i, npimg in enumerate(npimgs):
-        axs[i].set_title(classes[predictions[i].numpy()])
-        npbbox = npbboxes[i]
+        axs[i // n][i % n].set_title(classes[predictions[i]])
+        npbbox = bboxes[i]
         rect = patches.Rectangle((npbbox[0] * res, npbbox[2] * res), (npbbox[1] - npbbox[0])
                                  * res, (npbbox[3] - npbbox[2]) * res, linewidth=1, edgecolor='r', facecolor='none')
-        axs[i].imshow(npimg)
-        axs[i].add_patch(rect)
+        axs[i // n][i % n].imshow(npimg)
+        axs[i // n][i % n].add_patch(rect)
 
     plt.show()
 
@@ -91,8 +91,8 @@ if __name__ == '__main__':
     model.to(device)
     model.eval()
 
-    image_samples = []
-    bbox_samples = []
+    image_samples = Tensor()
+    bbox_samples = Tensor()
     prediction_samples = []
 
     with torch.no_grad():
@@ -113,9 +113,9 @@ if __name__ == '__main__':
 
             if (i + 1) % 100 == 0:
                 print(f'Step [{i + 1}/{n_total_steps}]')
-                image_samples.append(images)
-                bbox_samples.append(out_bboxes)
-                prediction_samples.append(predictions)
+                image_samples = torch.cat((image_samples, images))
+                bbox_samples = torch.cat((bbox_samples, out_bboxes))
+                prediction_samples.extend(predictions.numpy())
 
         t2 = time()
         acc = 100.0 * n_correct / n_samples
