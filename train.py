@@ -70,7 +70,6 @@ if __name__ == '__main__':
     model = _model(use_resnet)(
         num_classes=num_classes, zero_init_residual=True)
 
-    # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
     if args.checkpoint:
@@ -99,7 +98,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-            if (i + 1) % 10 == 0:
+            if (i + 1) % 100 == 0:
                 print(
                     f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
 

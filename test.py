@@ -31,22 +31,22 @@ def print_info(images, bboxes, predictions, classes):
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
     import numpy as np
+    import math
     res = 256
-    _, axs = plt.subplots(nrows=1, ncols=2)
+    n = math.ceil((math.sqrt(len(images))))
+    _, axs = plt.subplots(nrows=n, ncols=n)
     images = images / 2 + 0.5
     npimgs = np.transpose(np.array(images), (0, 2, 3, 1))
     npbboxes = np.array(bboxes)
 
-    for i, ax in enumerate(axs):
-        ax.set_title(classes[predictions[i].numpy()])
-        npimg = npimgs[i]
+    for i, npimg in enumerate(npimgs):
+        axs[i].set_title(classes[predictions[i].numpy()])
         npbbox = npbboxes[i]
+        rect = patches.Rectangle((npbbox[0] * res, npbbox[2] * res), (npbbox[1] - npbbox[0])
+                                 * res, (npbbox[3] - npbbox[2]) * res, linewidth=1, edgecolor='r', facecolor='none')
+        axs[i].imshow(npimg)
+        axs[i].add_patch(rect)
 
-        ax.imshow(npimg)
-
-        rect = patches.Rectangle((npbbox[0] * res, npbbox[2] * res), (npbbox[1] - npbbox[0]) * res , (npbbox[3] - npbbox[2]) * res, linewidth=1, edgecolor='r', facecolor='none')
-        ax.add_patch(rect)
-            
     plt.show()
 
 
@@ -83,12 +83,17 @@ if __name__ == '__main__':
 
     use_resnet = args.resnet
     num_classes = test_dataset.num_classes
-    model = _model(use_resnet)(num_classes=num_classes, zero_init_residual=True)
+    model = _model(use_resnet)(
+        num_classes=num_classes, zero_init_residual=True)
 
     checkpoint = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(checkpoint["model_state"])
     model.to(device)
     model.eval()
+
+    image_samples = []
+    bbox_samples = []
+    prediction_samples = []
 
     with torch.no_grad():
         t1 = time()
@@ -102,15 +107,17 @@ if __name__ == '__main__':
 
             out_labels, out_bboxes = model(images, depth_images)
 
-
             _, predictions = torch.max(out_labels, 1)
             n_samples += labels.size(0)
             n_correct += (predictions == labels).sum().item()
 
-            if (i + 1) % 10 == 0:
-                print (f'Step [{i + 1}/{n_total_steps}]')
-                print_info(images, bboxes, predictions, classes)
+            if (i + 1) % 100 == 0:
+                print(f'Step [{i + 1}/{n_total_steps}]')
+                image_samples.append(images)
+                bbox_samples.append(out_bboxes)
+                prediction_samples.append(predictions)
 
         t2 = time()
         acc = 100.0 * n_correct / n_samples
         print(f'Accuracy: {acc}%, Time: {(t2 - t1):.4f}s')
+        print_info(image_samples, bbox_samples, prediction_samples, classes)
