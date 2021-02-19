@@ -27,7 +27,7 @@ def _model(use_resnet: bool):
     return resnet18 if use_resnet else depthnet18
 
 
-def print_info(images, bboxes, predictions, classes):
+def print_info(images, bboxes, rbboxes, predictions, classes):
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
     import numpy as np
@@ -37,15 +37,19 @@ def print_info(images, bboxes, predictions, classes):
     _, axs = plt.subplots(nrows=n, ncols=n)
     images = images / 2 + 0.5
     npimgs = np.transpose(np.array(images), (0, 2, 3, 1))
-    print(axs.shape)
 
     for i, npimg in enumerate(npimgs):
         axs[i // n][i % n].set_title(classes[predictions[i]])
         npbbox = bboxes[i]
-        rect = patches.Rectangle((npbbox[0] * res, npbbox[2] * res), (npbbox[1] - npbbox[0])
-                                 * res, (npbbox[3] - npbbox[2]) * res, linewidth=1, edgecolor='r', facecolor='none')
+        nprbbox = rbboxes[i]
+        bbox = patches.Rectangle((npbbox[0] * res, (1 - npbbox[2]) * res), (npbbox[1] - npbbox[0])
+                                 * res, (npbbox[2] - npbbox[3]) * res, linewidth=1, edgecolor='r', facecolor='none')
+        rbbox = patches.Rectangle((nprbbox[0] * res, (1 - nprbbox[2]) * res), (nprbbox[1] - nprbbox[0])
+                            * res, (nprbbox[2] - nprbbox[3]) * res, linewidth=1, edgecolor='g', facecolor='none')
+        
         axs[i // n][i % n].imshow(npimg)
-        axs[i // n][i % n].add_patch(rect)
+        axs[i // n][i % n].add_patch(bbox)
+        axs[i // n][i % n].add_patch(rbbox)
 
     plt.show()
 
@@ -93,6 +97,7 @@ if __name__ == '__main__':
 
     image_samples = Tensor()
     bbox_samples = Tensor()
+    bbox_gts = Tensor()
     prediction_samples = []
 
     with torch.no_grad():
@@ -115,9 +120,10 @@ if __name__ == '__main__':
                 print(f'Step [{i + 1}/{n_total_steps}]')
                 image_samples = torch.cat((image_samples, images))
                 bbox_samples = torch.cat((bbox_samples, out_bboxes))
+                bbox_gts = torch.cat((bbox_gts, bboxes))
                 prediction_samples.extend(predictions.numpy())
 
         t2 = time()
         acc = 100.0 * n_correct / n_samples
         print(f'Accuracy: {acc}%, Time: {(t2 - t1):.4f}s')
-        print_info(image_samples, bbox_samples, prediction_samples, classes)
+        print_info(image_samples, bbox_samples, bbox_gts, prediction_samples, classes)
