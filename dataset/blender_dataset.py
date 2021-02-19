@@ -15,6 +15,7 @@ class BlenderDataset(Dataset):
         self.depth_images = []
         self.ids = {}
         self.labels = []
+        self.bboxes = []
         self.root_dir = root_dir
         self.render_transform = render_transform
         self.depth_transform = depth_transform
@@ -36,6 +37,7 @@ class BlenderDataset(Dataset):
                     self.ids[data['label']] = idx
                     idx = idx + 1
                 self.labels.append(self.ids[data['label']])
+                self.bboxes.append(np.array(data['bbox']))
         self.num_classes = len(set(self.labels))
 
     def __len__(self):
@@ -56,7 +58,7 @@ class BlenderDataset(Dataset):
         if self.depth_transform:
             depth_data = self.depth_transform(depth_data)
 
-        return data, depth_data, self.labels[idx]
+        return data, depth_data, self.labels[idx], self.bboxes[idx]
 
 
 def exr2depth(exr):
@@ -96,8 +98,8 @@ def test_dataset():
     print(blender_data.num_classes)
     dataloader = DataLoader(blender_data, batch_size=2, shuffle=True)
     for data in dataloader:
-        images, depth_images, labels = data
-        print(images.size(), depth_images.size(), labels)
+        images, depth_images, labels, bboxes = data
+        print(images.size(), depth_images.size(), labels, bboxes.size())
         break
 
     import matplotlib.pyplot as plt

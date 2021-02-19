@@ -14,7 +14,6 @@ def get_args():
     parser = ArgumentParser(
         description='Trains a nn using the blender dataset.')
     parser.add_argument('--dataset_path', type=str, default=None)
-    parser.add_argument('--num_classes', type=int, default=3)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--use_gpu', action="store_true", default=True)
     parser.add_argument('--checkpoint', type=str, default='./checkpoint.pth')
@@ -28,10 +27,27 @@ def _model(use_resnet: bool):
     return resnet18 if use_resnet else depthnet18
 
 
-def forward(model: Union[ResNet, DepthNet], images: Tensor, depth_images: Tensor) -> Tensor:
-    if isinstance(model, ResNet):
-        return model(images)
-    return model(images, depth_images)
+def print_info(images, bboxes, predictions, classes):
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    import numpy as np
+    res = 256
+    _, axs = plt.subplots(nrows=1, ncols=2)
+    images = images / 2 + 0.5
+    npimgs = np.transpose(np.array(images), (0, 2, 3, 1))
+    npbboxes = np.array(bboxes)
+
+    for i, ax in enumerate(axs):
+        ax.set_title(classes[predictions[i].numpy()])
+        npimg = npimgs[i]
+        npbbox = npbboxes[i]
+
+        ax.imshow(npimg)
+
+        rect = patches.Rectangle((npbbox[0] * res, npbbox[2] * res), (npbbox[1] - npbbox[0]) * res , (npbbox[3] - npbbox[2]) * res, linewidth=1, edgecolor='r', facecolor='none')
+        ax.add_patch(rect)
+            
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -63,8 +79,10 @@ if __name__ == '__main__':
     test_loader = DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False)
 
+    classes = list(test_dataset.ids.keys())
+
     use_resnet = args.resnet
-    num_classes = args.num_classes
+    num_classes = test_dataset.num_classes
     model = _model(use_resnet)(num_classes=num_classes, zero_init_residual=True)
 
     checkpoint = torch.load(args.checkpoint, map_location=device)
@@ -77,19 +95,21 @@ if __name__ == '__main__':
         n_correct = 0
         n_samples = 0
         n_total_steps = len(test_loader)
-        for i, (images, depth_images, labels) in enumerate(test_loader):
+        for i, (images, depth_images, labels, bboxes) in enumerate(test_loader):
             images: Tensor = images.to(device)
             depth_images: Tensor = depth_images.to(device)
             labels: Tensor = labels.to(device)
 
-            outputs: Tensor = forward(model, images, depth_images)
+            out_labels, out_bboxes = model(images, depth_images)
 
-            _, predicted = torch.max(outputs, 1)
+
+            _, predictions = torch.max(out_labels, 1)
             n_samples += labels.size(0)
-            n_correct += (predicted == labels).sum().item()
+            n_correct += (predictions == labels).sum().item()
 
             if (i + 1) % 10 == 0:
                 print (f'Step [{i + 1}/{n_total_steps}]')
+                print_info(images, bboxes, predictions, classes)
 
         t2 = time()
         acc = 100.0 * n_correct / n_samples

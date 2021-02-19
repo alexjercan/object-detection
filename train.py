@@ -1,14 +1,15 @@
-from typing import Union
+from typing import Tuple, Union
 import torch
 from torch.functional import Tensor
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim
 import torchvision.transforms as transforms
 from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
 from model.depthnet import DepthNet, depthnet152, depthnet18
-from torchvision.models.resnet import ResNet, resnet152, resnet18
+from model.resnet import ResNet, resnet152, resnet18
 from time import time
 
 
@@ -16,7 +17,6 @@ def get_args():
     parser = ArgumentParser(
         description='Trains a nn using the blender dataset.')
     parser.add_argument('--dataset_path', type=str, default=None)
-    parser.add_argument('--num_classes', type=int, default=3)
     parser.add_argument('--epochs', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--learning_rate', type=float, default=0.001)
@@ -31,12 +31,6 @@ def get_args():
 
 def _model(use_resnet: bool):
     return resnet18 if use_resnet else depthnet18
-
-
-def forward(model: Union[ResNet, DepthNet], images: Tensor, depth_images: Tensor) -> Tensor:
-    if isinstance(model, ResNet):
-        return model(images)
-    return model(images, depth_images)
 
 
 if __name__ == '__main__':
@@ -72,10 +66,11 @@ if __name__ == '__main__':
         train_dataset, batch_size=batch_size, shuffle=True)
 
     use_resnet = args.resnet
-    num_classes = args.num_classes
-    model = _model(use_resnet)(num_classes=num_classes, zero_init_residual=True)
+    num_classes = train_dataset.num_classes
+    model = _model(use_resnet)(
+        num_classes=num_classes, zero_init_residual=True)
 
-    criterion = nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
     if args.checkpoint:
@@ -89,20 +84,24 @@ if __name__ == '__main__':
     n_total_steps = len(train_loader)
     for epoch in range(epoch, num_epochs):
         t1 = time()
-        for i, (images, depth_images, labels) in enumerate(train_loader):
+        for i, (images, depth_images, labels, bboxes) in enumerate(train_loader):
             images: Tensor = images.to(device)
             depth_images: Tensor = depth_images.to(device)
             labels: Tensor = labels.to(device)
 
-            outputs: Tensor = forward(model, images, depth_images)
-            loss: Tensor = criterion(outputs, labels)
+            out_labels, out_bboxes = model(images, depth_images)
+            loss_labels = F.cross_entropy(out_labels, labels, reduction="sum")
+            loss_bboxes = F.l1_loss(out_bboxes, bboxes, reduction="none")
+            loss_bboxes = loss_bboxes.sum(1).sum()
+            loss = loss_labels + loss_bboxes / num_classes
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             if (i + 1) % 10 == 0:
-                print (f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
+                print(
+                    f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
 
         torch.save({
             "epoch": epoch + 1,
