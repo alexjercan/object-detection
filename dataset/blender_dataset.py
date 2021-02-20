@@ -10,53 +10,51 @@ import numpy as np
 
 
 class BlenderDataset(Dataset):
-    def __init__(self, root_dir, cvs_fname, render_transform=None, depth_transform=None, train=False):
-        self.classes = []
-        self.num_classes = 0
-        self.rgb_images = []
-        self.depth_images = []
-        self.labels = []
-        self.bboxes = []
-        self.root_dir = root_dir
+    def __init__(self, root_dir, csv_fname, class_fname='class.csv', render_transform=None, depth_transform=None, train=False):
         self.render_transform = render_transform
         self.depth_transform = depth_transform
+        self.root_dir = root_dir
         self.train = train
 
-        json_fnames = []
-        with open(join(root_dir, cvs_fname), 'r') as fd:
-            json_fnames = fd.read().splitlines()
+        self.classes = []
+        with open(join(root_dir, class_fname), 'r') as fd:
+            self.classes = fd.read().splitlines()
+        self.json_fnames = []
+        with open(join(root_dir, csv_fname), 'r') as fd:
+            self.json_fnames = fd.read().splitlines()
 
-        for json_fname in json_fnames:
-            with open(join(root_dir, json_fname), 'r') as json_file:
-                fname = json_fname.split('.')[0]
-                data = json.load(json_file)
-                self.rgb_images.append(fname + '_render.png')
-                self.depth_images.append(fname + '_depth.exr')
-                if data['label'] not in self.classes:
-                    self.classes.append(data['label'])
-                self.labels.append(self.classes.index(data['label']))
-                self.bboxes.append(np.array(data['bbox']))
         self.num_classes = len(self.classes)
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.json_fnames)
 
     def __getitem__(self, idx):
-        render_name = self.rgb_images[idx]
-        render_path = join(self.root_dir, render_name)
-        render_data = np.array(Image.open(render_path).convert('RGB'))
+        json_fname = self.json_fnames[idx]
+        with open(join(self.root_dir, json_fname), 'r') as json_file:
+            data = json.load(json_file)
 
-        depth_name = self.depth_images[idx]
-        depth_path = join(self.root_dir, depth_name)
+        if not data:
+            return None
+
+        fname = json_fname.split('.')[0]
+        rgb_fname = fname + '_render.png'
+        depth_fname = fname + '_depth.exr'
+        label = self.classes.index(data['label'])
+        bbox = np.array(data['bbox'])
+
+        rgb_path = join(self.root_dir, rgb_fname)
+        rgb_data = np.array(Image.open(rgb_path).convert('RGB'))
+
+        depth_path = join(self.root_dir, depth_fname)
         depth_data = exr2depth(depth_path)
-
+    
         if self.render_transform:
-            data = self.render_transform(render_data)
+            rgb_data = self.render_transform(rgb_data)
 
         if self.depth_transform:
             depth_data = self.depth_transform(depth_data)
 
-        return data, depth_data, self.labels[idx], self.bboxes[idx]
+        return rgb_data, depth_data, label, bbox
 
 
 def exr2depth(exr):
@@ -92,12 +90,12 @@ def test_dataset():
         transforms.Resize((512, 512)),
         transforms.ToTensor(),
     ])
-    blender_data = BlenderDataset(root, "train.csv", transform_val, transform_val, True)
+    blender_data = BlenderDataset(root, "train.csv", "class.csv", transform_val, transform_val, True)
     print(blender_data.num_classes)
     dataloader = DataLoader(blender_data, batch_size=2, shuffle=True)
     for data in dataloader:
         images, depth_images, labels, bboxes = data
-        print(images.size(), depth_images.size(), labels, bboxes.size())
+        print(images.shape, depth_images.shape, labels.shape, bboxes.shape)
         break
 
     import matplotlib.pyplot as plt

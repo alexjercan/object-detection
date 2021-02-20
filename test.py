@@ -77,7 +77,7 @@ if __name__ == '__main__':
         transforms.Normalize((0.5,), (0.5,)),
     ])
 
-    test_dataset = BlenderDataset(root_dir='C:/dev/blenderRenderer/output', cvs_fname='test.csv',
+    test_dataset = BlenderDataset(root_dir='C:/dev/blenderRenderer/output', csv_fname='test.csv', class_fname='class.csv',
                                   render_transform=render_transform, depth_transform=depth_transform, train=False)
     test_loader = DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False)

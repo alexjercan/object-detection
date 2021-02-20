@@ -60,7 +60,7 @@ if __name__ == '__main__':
         transforms.Normalize((0.5,), (0.5,)),
     ])
 
-    train_dataset = BlenderDataset(root_dir=args.dataset_path, cvs_fname='train.csv',
+    train_dataset = BlenderDataset(root_dir=args.dataset_path, csv_fname='train.csv', class_fname='class.csv',
                                    render_transform=render_transform, depth_transform=depth_transform, train=True)
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True)
