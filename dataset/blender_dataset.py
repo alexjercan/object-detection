@@ -11,34 +11,32 @@ import numpy as np
 
 class BlenderDataset(Dataset):
     def __init__(self, root_dir, cvs_fname, render_transform=None, depth_transform=None, train=False):
+        self.classes = []
+        self.num_classes = 0
         self.rgb_images = []
         self.depth_images = []
-        self.ids = {}
         self.labels = []
         self.bboxes = []
         self.root_dir = root_dir
         self.render_transform = render_transform
         self.depth_transform = depth_transform
-        self.num_classes = 0
         self.train = train
 
         json_fnames = []
         with open(join(root_dir, cvs_fname), 'r') as fd:
             json_fnames = fd.read().splitlines()
 
-        idx = 0
         for json_fname in json_fnames:
             with open(join(root_dir, json_fname), 'r') as json_file:
                 fname = json_fname.split('.')[0]
                 data = json.load(json_file)
                 self.rgb_images.append(fname + '_render.png')
                 self.depth_images.append(fname + '_depth.exr')
-                if data['label'] not in self.ids:
-                    self.ids[data['label']] = idx
-                    idx = idx + 1
-                self.labels.append(self.ids[data['label']])
+                if data['label'] not in self.classes:
+                    self.classes.append(data['label'])
+                self.labels.append(self.classes.index(data['label']))
                 self.bboxes.append(np.array(data['bbox']))
-        self.num_classes = len(set(self.labels))
+        self.num_classes = len(self.classes)
 
     def __len__(self):
         return len(self.labels)

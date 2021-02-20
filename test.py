@@ -1,4 +1,3 @@
-from typing import Union
 import torch
 from torch.functional import Tensor
 import torchvision.transforms as transforms
@@ -83,7 +82,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False)
 
-    classes = list(test_dataset.ids.keys())
+    classes = test_dataset.classes
 
     use_resnet = args.resnet
     num_classes = test_dataset.num_classes
@@ -116,7 +115,7 @@ if __name__ == '__main__':
             n_samples += labels.size(0)
             n_correct += (predictions == labels).sum().item()
 
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 10 == 0:
                 print(f'Step [{i + 1}/{n_total_steps}]')
                 image_samples = torch.cat((image_samples, images))
                 bbox_samples = torch.cat((bbox_samples, out_bboxes))
