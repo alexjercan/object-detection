@@ -1,24 +1,58 @@
-from model.utils import DepthModule, ResNetModule
 import torch
 import torch.nn as nn
-from torchvision.models.resnet import BasicBlock, Bottleneck
+from torchvision.models.resnet import ResNet
+import torchvision.models.resnet as rn
 
 
 class DepthNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=1000, zero_init_residual=False):
+    def __init__(self, out_features=512):
         super(DepthNet, self).__init__()
-        self.depth_module = DepthModule(out_size=512)
-        self.resnet_module = ResNetModule(
-            block, layers, zero_init_residual, out_size=512)
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=11, stride=2, padding=5,
+                               bias=False)
+        self.conv16 = nn.Conv2d(16, 64, kernel_size=11, stride=4, padding=5,
+                                bias=False)
+        self.bn16 = nn.BatchNorm2d(16)
+        self.bn64 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.fc = nn.Linear(4096, out_features)
+
+    def forward(self, y):
+        y = self.conv1(y)
+        y = self.bn16(y)
+        y = self.relu(y)
+        y = self.maxpool(y)
+
+        y = self.conv16(y)
+        y = self.bn64(y)
+        y = self.relu(y)
+        y = self.maxpool(y)
+
+        y = y.view(y.size(0), -1)
+        y = self.fc(y)
+        y = self.relu(y)
+
+        return y
+
+
+class ConvNet(nn.Module):
+
+    def __init__(self, resnet: ResNet, num_classes=1000):
+        super(ConvNet, self).__init__()
+        resnet.fc = nn.Sequential(nn.Linear(resnet.fc.in_features, 512),
+                                  nn.ReLU(inplace=True))
+        self.resnet = resnet
+        self.depthnet = DepthNet(out_features=512)
+
         self.relu = nn.ReLU(inplace=True)
         self.fc1 = nn.Linear(512 * 2, 256)
         self.fc2 = nn.Linear(256, num_classes)
-        self.fr1 = nn.Linear(256, 4) 
+        self.fr1 = nn.Linear(256, 4)
 
     def forward(self, x, y):
-        x = self.resnet_module(x)
-        y = self.depth_module(y)
+        x = self.resnet(x)
+        y = self.depthnet(y)
 
         z = torch.cat((x.view(x.size(0), -1), y.view(y.size(0), -1)), dim=1)
         z = self.fc1(z)
@@ -29,21 +63,26 @@ class DepthNet(nn.Module):
         return cl, bb
 
 
-def depthnet18(pretrained=False, **kwargs):
-    return DepthNet(BasicBlock, [2, 2, 2, 2], **kwargs)
+def depthnet18(pretrained=False, num_classes=1000, **kwargs):
+    resnet = rn.resnet18(pretrained, **kwargs)
+    return ConvNet(resnet, num_classes)
 
 
-def depthnet34(pretrained=False, **kwargs):
-    return DepthNet(BasicBlock, [3, 4, 6, 3], **kwargs)
+def depthnet34(pretrained=False, num_classes=1000, **kwargs):
+    resnet = rn.resnet34(pretrained, **kwargs)
+    return ConvNet(resnet, num_classes)
 
 
-def depthnet50(pretrained=False, **kwargs):
-    return DepthNet(Bottleneck, [3, 4, 6, 3], **kwargs)
+def depthnet50(pretrained=False, num_classes=1000, **kwargs):
+    resnet = rn.resnet50(pretrained, **kwargs)
+    return ConvNet(resnet, num_classes)
 
 
-def depthnet101(pretrained=False, **kwargs):
-    return DepthNet(Bottleneck, [3, 4, 23, 3], **kwargs)
+def depthnet101(pretrained=False, num_classes=1000, **kwargs):
+    resnet = rn.resnet101(pretrained, **kwargs)
+    return ConvNet(resnet, num_classes)
 
 
-def depthnet152(pretrained=False, **kwargs):
-    return DepthNet(Bottleneck, [3, 8, 36, 3], **kwargs)
+def depthnet152(pretrained=False, num_classes=1000, **kwargs):
+    resnet = rn.resnet152(pretrained, **kwargs)
+    return ConvNet(resnet, num_classes)

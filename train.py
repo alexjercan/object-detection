@@ -1,15 +1,13 @@
-from typing import Tuple, Union
 import torch
 from torch.functional import Tensor
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim
 import torchvision.transforms as transforms
 from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
-from model.depthnet import DepthNet, depthnet152, depthnet18
-from model.resnet import ResNet, resnet152, resnet18
+from model.depthnet import depthnet152, depthnet18
+from model.resnet import resnet152, resnet18
 from time import time
 
 
@@ -24,6 +22,7 @@ def get_args():
     parser.add_argument('--output_path', type=str, default='./checkpoint.pth')
     parser.add_argument('--checkpoint', type=str, default=None)
     parser.add_argument('--resnet', action="store_true", default=False)
+    parser.add_argument('--pretrained', action="store_true", default=False)
 
     args = parser.parse_args()
     return args
@@ -66,9 +65,10 @@ if __name__ == '__main__':
         train_dataset, batch_size=batch_size, shuffle=True)
 
     use_resnet = args.resnet
+    pretrained = args.pretrained
     num_classes = train_dataset.num_classes
-    model = _model(use_resnet)(
-        num_classes=num_classes, zero_init_residual=True)
+    model = _model(use_resnet)(pretrained=pretrained,
+                               num_classes=num_classes, zero_init_residual=True)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 

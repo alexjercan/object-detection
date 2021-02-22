@@ -4,8 +4,8 @@ import torchvision.transforms as transforms
 from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
-from model.depthnet import DepthNet, depthnet152, depthnet18
-from torchvision.models.resnet import ResNet, resnet152, resnet18
+from model.depthnet import depthnet152, depthnet18
+from torchvision.models.resnet import resnet152, resnet18
 from time import time
 
 
