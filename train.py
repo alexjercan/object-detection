@@ -1,5 +1,6 @@
 import torch
 from torch.functional import Tensor
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim
 import torchvision.transforms as transforms
@@ -96,11 +97,14 @@ if __name__ == '__main__':
             depth_images: Tensor = depth_images.to(device)
             labels: Tensor = labels.to(device)
 
-            out_labels, out_bboxes = model(images, depth_images)
+            out_labels, out_bboxes, out_seg_masks = model(images, depth_images)
             loss_labels = F.cross_entropy(out_labels, labels, reduction="sum")
             loss_bboxes = F.l1_loss(out_bboxes, bboxes, reduction="none")
             loss_bboxes = loss_bboxes.sum(1).sum()
-            loss = loss_labels + loss_bboxes / num_classes
+            out_seg_masks = torch.argmax(out_seg_masks, dim=1)
+            loss_seg_masks = F.l1_loss(out_seg_masks, seg_masks.squeeze(1), reduction="none")
+            loss_seg_masks = loss_seg_masks.sum((1, 2)).sum()
+            loss = loss_labels + loss_bboxes / num_classes + loss_seg_masks / num_classes
 
             optimizer.zero_grad()
             loss.backward()

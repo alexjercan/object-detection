@@ -51,7 +51,7 @@ class BlenderDataset(Dataset):
         depth_data = exr2depth(depth_path)
 
         albedo_path = join(self.root_dir, albedo_fname)
-        albedo_data = exr2segmentation(albedo_path)
+        albedo_data = exr2segmentation(albedo_path, label)
 
         if self.render_transform is not None:
             rgb_data = self.render_transform(rgb_data)
@@ -90,7 +90,7 @@ def exr2depth(exr):
     return img
 
 
-def exr2segmentation(exr):
+def exr2segmentation(exr, label):
     file = OpenEXR.InputFile(exr)
 
     # Compute the size
@@ -102,7 +102,8 @@ def exr2segmentation(exr):
                  for Chan in ("R", "G", "B")]
 
     seg = np.array(R) + np.array(G) + np.array(B)
-    seg[seg > 0] = 1
+    seg[seg <= 0] = -1
+    seg[seg > 0] = label
     seg = seg.astype(np.float32).reshape(sz[1], -1)
 
     return seg
@@ -114,7 +115,7 @@ def test_dataset():
     transform_val = transforms.Compose([
         transforms.ToTensor(),
         transforms.ToPILImage(),
-        transforms.Resize((512, 512)),
+        transforms.Resize((256, 256)),
         transforms.ToTensor(),
     ])
     blender_data = BlenderDataset(
