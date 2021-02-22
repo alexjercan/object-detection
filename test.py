@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 from dataset.blender_dataset import BlenderDataset
 from torch.utils.data import DataLoader
 from model.depthnet import depthnet152, depthnet18
-from torchvision.models.resnet import resnet152, resnet18
+from model.resnet import resnet152, resnet18
 from time import time
 
 
@@ -47,10 +47,10 @@ def print_info(images, bboxes, rbboxes, seg_mask_samples, predictions, classes):
         rbbox = patches.Rectangle((nprbbox[0] * res, (1 - nprbbox[2]) * res), (nprbbox[1] - nprbbox[0])
                                   * res, (nprbbox[2] - nprbbox[3]) * res, linewidth=1, edgecolor='g', facecolor='none')
 
-        npseg = npsegs[i]
-        npseg = torch.argmax(npseg.squeeze(), dim=0).detach().cpu().numpy()
+        npseg = np.tile(npsegs[i], 3)
+        npseg /= np.max(npseg)
         
-        img = np.concatenate((npimg, npseg), axis=0)
+        img = np.concatenate((npimg, npseg), axis=1)
         
         axs[i // n][i % n].imshow(img)
         axs[i // n][i % n].add_patch(bbox)
@@ -135,6 +135,7 @@ if __name__ == '__main__':
                 image_samples = torch.cat((image_samples, images))
                 bbox_samples = torch.cat((bbox_samples, out_bboxes))
                 bbox_gts = torch.cat((bbox_gts, bboxes))
+                out_seg_masks = torch.argmax(out_seg_masks, dim=1).unsqueeze(1)
                 seg_mask_samples = torch.cat((seg_mask_samples, out_seg_masks))
                 prediction_samples.extend(predictions.numpy())
 
