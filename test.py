@@ -44,8 +44,8 @@ def print_info(images, bboxes, rbboxes, predictions, classes):
         bbox = patches.Rectangle((npbbox[0] * res, (1 - npbbox[2]) * res), (npbbox[1] - npbbox[0])
                                  * res, (npbbox[2] - npbbox[3]) * res, linewidth=1, edgecolor='r', facecolor='none')
         rbbox = patches.Rectangle((nprbbox[0] * res, (1 - nprbbox[2]) * res), (nprbbox[1] - nprbbox[0])
-                            * res, (nprbbox[2] - nprbbox[3]) * res, linewidth=1, edgecolor='g', facecolor='none')
-        
+                                  * res, (nprbbox[2] - nprbbox[3]) * res, linewidth=1, edgecolor='g', facecolor='none')
+
         axs[i // n][i % n].imshow(npimg)
         axs[i // n][i % n].add_patch(bbox)
         axs[i // n][i % n].add_patch(rbbox)
@@ -77,8 +77,16 @@ if __name__ == '__main__':
         transforms.Normalize((0.5,), (0.5,)),
     ])
 
+    seg_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.ToPILImage(),
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,)),
+    ])
+
     test_dataset = BlenderDataset(root_dir='C:/dev/blenderRenderer/output', csv_fname='test.csv', class_fname='class.csv',
-                                  render_transform=render_transform, depth_transform=depth_transform, train=False)
+                                  render_transform=render_transform, depth_transform=depth_transform, albedo_transform=seg_transform, train=False)
     test_loader = DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -104,7 +112,7 @@ if __name__ == '__main__':
         n_correct = 0
         n_samples = 0
         n_total_steps = len(test_loader)
-        for i, (images, depth_images, labels, bboxes) in enumerate(test_loader):
+        for i, (images, depth_images, labels, bboxes, seg_masks) in enumerate(test_loader):
             images: Tensor = images.to(device)
             depth_images: Tensor = depth_images.to(device)
             labels: Tensor = labels.to(device)
@@ -125,4 +133,5 @@ if __name__ == '__main__':
         t2 = time()
         acc = 100.0 * n_correct / n_samples
         print(f'Accuracy: {acc}%, Time: {(t2 - t1):.4f}s')
-        print_info(image_samples, bbox_samples, bbox_gts, prediction_samples, classes)
+        print_info(image_samples, bbox_samples,
+                   bbox_gts, prediction_samples, classes)

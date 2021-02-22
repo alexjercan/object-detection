@@ -59,8 +59,16 @@ if __name__ == '__main__':
         transforms.Normalize((0.5,), (0.5,)),
     ])
 
+    seg_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.ToPILImage(),
+        transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,)),
+    ])
+
     train_dataset = BlenderDataset(root_dir=args.dataset_path, csv_fname='train.csv', class_fname='class.csv',
-                                   render_transform=render_transform, depth_transform=depth_transform, train=True)
+                                   render_transform=render_transform, depth_transform=depth_transform, albedo_transform=seg_transform, train=True)
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -83,7 +91,7 @@ if __name__ == '__main__':
     n_total_steps = len(train_loader)
     for epoch in range(epoch, num_epochs):
         t1 = time()
-        for i, (images, depth_images, labels, bboxes) in enumerate(train_loader):
+        for i, (images, depth_images, labels, bboxes, seg_masks) in enumerate(train_loader):
             images: Tensor = images.to(device)
             depth_images: Tensor = depth_images.to(device)
             labels: Tensor = labels.to(device)
