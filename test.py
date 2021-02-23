@@ -26,7 +26,7 @@ def _model(use_resnet: bool):
     return resnet18 if use_resnet else depthnet18
 
 
-def print_info(images, bboxes, rbboxes, seg_mask_samples, predictions, classes):
+def print_info(images, bboxes, rbboxes, seg_masks, rseg_masks, predictions, classes):
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
     import numpy as np
@@ -35,8 +35,10 @@ def print_info(images, bboxes, rbboxes, seg_mask_samples, predictions, classes):
     n = math.ceil((math.sqrt(len(images))))
     _, axs = plt.subplots(nrows=n, ncols=n)
     images = images / 2 + 0.5
+    rseg_masks = rseg_masks / 2 + 0.5
     npimgs = np.transpose(np.array(images), (0, 2, 3, 1))
-    npsegs = np.transpose(np.array(seg_mask_samples), (0, 2, 3, 1))
+    npsegs = np.transpose(np.array(seg_masks), (0, 2, 3, 1))
+    nprsegs = np.transpose(np.array(rseg_masks), (0, 2, 3, 1))
 
     for i, npimg in enumerate(npimgs):
         axs[i // n][i % n].set_title(classes[predictions[i]])
@@ -49,8 +51,11 @@ def print_info(images, bboxes, rbboxes, seg_mask_samples, predictions, classes):
 
         npseg = np.tile(npsegs[i], 3)
         npseg /= np.max(npseg)
+        
+        nprseg = np.tile(nprsegs[i], 3)
+        nprseg /= np.max(nprseg)
 
-        img = np.concatenate((npimg, npseg), axis=1)
+        img = np.concatenate((npimg, npseg, nprseg), axis=1)
 
         axs[i // n][i % n].imshow(img)
         axs[i // n][i % n].add_patch(bbox)
@@ -112,6 +117,7 @@ if __name__ == '__main__':
     bbox_samples = Tensor()
     bbox_gts = Tensor()
     seg_mask_samples = Tensor()
+    seg_mask_gts = Tensor()
     prediction_samples = []
 
     with torch.no_grad():
@@ -130,17 +136,18 @@ if __name__ == '__main__':
             n_samples += labels.size(0)
             n_correct += (predictions == labels).sum().item()
 
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 200 == 0:
                 print(f'Step [{i + 1}/{n_total_steps}]')
                 image_samples = torch.cat((image_samples, images))
                 bbox_samples = torch.cat((bbox_samples, out_bboxes))
                 bbox_gts = torch.cat((bbox_gts, bboxes))
                 out_seg_masks = torch.argmax(out_seg_masks, dim=1).unsqueeze(1)
                 seg_mask_samples = torch.cat((seg_mask_samples, out_seg_masks))
+                seg_mask_gts = torch.cat((seg_mask_gts, seg_masks))
                 prediction_samples.extend(predictions.numpy())
 
         t2 = time()
         acc = 100.0 * n_correct / n_samples
         print(f'Accuracy: {acc}%, Time: {(t2 - t1):.4f}s')
-        print_info(image_samples, bbox_samples,
-                   bbox_gts, seg_mask_samples, prediction_samples, classes)
+        print_info(image_samples, bbox_samples, bbox_gts,
+                   seg_mask_samples, seg_mask_gts, prediction_samples, classes)
