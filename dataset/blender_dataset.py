@@ -58,7 +58,7 @@ class BlenderDataset(Dataset):
 
         if self.depth_transform is not None:
             depth_data = self.depth_transform(depth_data)
-            
+
         if self.albedo_transform is not None:
             albedo_data = self.albedo_transform(albedo_data)
 
@@ -73,7 +73,7 @@ def exr2depth(exr):
 
     FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
     R = [array.array('f', file.channel(Chan, FLOAT)).tolist()
-           for Chan in "R"]
+         for Chan in "R"]
 
     img = np.zeros((sz[1], sz[0], 3), np.float64)
 
@@ -83,7 +83,6 @@ def exr2depth(exr):
     maxvalue = np.max(np.where(np.isinf(data), -np.Inf, data))
     data[data > maxvalue] = maxvalue
     data /= maxvalue
-    
 
     img = np.array(data).astype(np.float32).reshape(img.shape[0], -1)
 
@@ -99,7 +98,7 @@ def exr2segmentation(exr, label):
 
     FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
     R, G, B = [array.array('f', file.channel(Chan, FLOAT)).tolist()
-                 for Chan in ("R", "G", "B")]
+               for Chan in ("R", "G", "B")]
 
     seg = np.array(R) + np.array(G) + np.array(B)
     seg[seg <= 0] = -1
@@ -124,26 +123,27 @@ def test_dataset():
     dataloader = DataLoader(blender_data, batch_size=2, shuffle=True)
     for data in dataloader:
         images, depth_images, labels, bboxes, segmentations = data
-        print(images.shape, depth_images.shape, labels.shape, bboxes.shape, segmentations.shape)
+        print(images.shape, depth_images.shape, labels.shape,
+              bboxes.shape, segmentations.shape)
         break
 
     from matplotlib.figure import Figure
     import matplotlib.pyplot as plt
     import torchvision
     fig: Figure = plt.figure()
-    
+
     npimg = torchvision.utils.make_grid(images).numpy()
     fig.add_subplot(3, 1, 1)
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
-    
+
     npdepth = torchvision.utils.make_grid(depth_images).numpy()
     fig.add_subplot(3, 1, 2)
     plt.imshow(np.transpose(npdepth, (1, 2, 0)))
-    
+
     npseg = torchvision.utils.make_grid(segmentations).numpy()
     fig.add_subplot(3, 1, 3)
     plt.imshow(np.transpose(npseg, (1, 2, 0)))
-    
+
     plt.show()
 
 

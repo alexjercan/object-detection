@@ -1,6 +1,5 @@
 import torch
 from torch.functional import Tensor
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim
 import torchvision.transforms as transforms
@@ -29,8 +28,21 @@ def get_args():
     return args
 
 
-def _model(use_resnet: bool):
-    return resnet18 if use_resnet else depthnet18
+def loss_function(prediction, target, num_classes) -> Tensor:
+    p_labels, p_bboxes, p_seg_masks = prediction
+    t_labels, t_bboxes, t_seg_masks = target
+    loss_labels = F.cross_entropy(p_labels, t_labels, reduction="sum")
+
+    loss_bboxes = F.l1_loss(p_bboxes, t_bboxes, reduction="none")
+    loss_bboxes = loss_bboxes.sum(1).sum()
+
+    x = torch.argmax(p_seg_masks, dim=1)
+    loss_seg_masks = F.l1_loss(x, t_seg_masks.squeeze(1), reduction="none")
+    loss_seg_masks = loss_seg_masks.sum((1, 2)).sum()
+
+    loss: Tensor = loss_labels + loss_bboxes / \
+        num_classes + loss_seg_masks / num_classes
+    return loss
 
 
 if __name__ == '__main__':
@@ -76,8 +88,8 @@ if __name__ == '__main__':
     use_resnet = args.resnet
     pretrained = args.pretrained
     num_classes = train_dataset.num_classes
-    model = _model(use_resnet)(pretrained=pretrained,
-                               num_classes=num_classes, zero_init_residual=True)
+    model = (resnet18 if use_resnet else depthnet18)(pretrained=pretrained,
+                                                     num_classes=num_classes, zero_init_residual=True)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
@@ -96,15 +108,12 @@ if __name__ == '__main__':
             images: Tensor = images.to(device)
             depth_images: Tensor = depth_images.to(device)
             labels: Tensor = labels.to(device)
+            bboxes: Tensor = bboxes.to(device)
+            seg_masks: Tensor = seg_masks.to(device)
+            target = (labels, bboxes, seg_masks)
 
-            out_labels, out_bboxes, out_seg_masks = model(images, depth_images)
-            loss_labels = F.cross_entropy(out_labels, labels, reduction="sum")
-            loss_bboxes = F.l1_loss(out_bboxes, bboxes, reduction="none")
-            loss_bboxes = loss_bboxes.sum(1).sum()
-            out_seg_masks = torch.argmax(out_seg_masks, dim=1)
-            loss_seg_masks = F.l1_loss(out_seg_masks, seg_masks.squeeze(1), reduction="none")
-            loss_seg_masks = loss_seg_masks.sum((1, 2)).sum()
-            loss = loss_labels + loss_bboxes / num_classes + loss_seg_masks / num_classes
+            prediction = model(images, depth_images)
+            loss = loss_function(prediction, target, num_classes)
 
             optimizer.zero_grad()
             loss.backward()

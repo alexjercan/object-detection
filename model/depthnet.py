@@ -1,66 +1,58 @@
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 from torchvision.models.resnet import ResNet
+from torchvision.models._utils import IntermediateLayerGetter
 import torchvision.models.resnet as rn
-
-
-class DepthNet(nn.Module):
-
-    def __init__(self, out_features=512):
-        super(DepthNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=11, stride=2, padding=5,
-                               bias=False)
-        self.conv16 = nn.Conv2d(16, 64, kernel_size=11, stride=4, padding=5,
-                                bias=False)
-        self.bn16 = nn.BatchNorm2d(16)
-        self.bn64 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.fc = nn.Linear(4096, out_features)
-
-    def forward(self, y):
-        y = self.conv1(y)
-        y = self.bn16(y)
-        y = self.relu(y)
-        y = self.maxpool(y)
-
-        y = self.conv16(y)
-        y = self.bn64(y)
-        y = self.relu(y)
-        y = self.maxpool(y)
-
-        y = y.view(y.size(0), -1)
-        y = self.fc(y)
-        y = self.relu(y)
-
-        return y
+from torchvision.models.segmentation.fcn import FCNHead
 
 
 class ConvNet(nn.Module):
 
     def __init__(self, resnet: ResNet, num_classes=1000):
         super(ConvNet, self).__init__()
-        resnet.fc = nn.Sequential(nn.Linear(resnet.fc.in_features, 512),
+        resnet.conv1 = _reset_conv1(resnet)
+        self.resnet = IntermediateLayerGetter(resnet, return_layers={'layer4': 'out'})
+        self.segmentation = FCNHead(resnet.fc.in_features, num_classes)
+        
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Sequential(nn.Linear(resnet.fc.in_features, 512),
                                   nn.ReLU(inplace=True))
-        self.resnet = resnet
-        self.depthnet = DepthNet(out_features=512)
-
         self.relu = nn.ReLU(inplace=True)
-        self.fc1 = nn.Linear(512 * 2, 256)
+        self.fc1 = nn.Linear(512, 256)
         self.fc2 = nn.Linear(256, num_classes)
         self.fr1 = nn.Linear(256, 4)
 
     def forward(self, x, y):
-        x = self.resnet(x)
-        y = self.depthnet(y)
+        x = torch.cat((x, y), dim=1)
+        
+        input_shape = x.shape[-2:]
+        
+        features = self.resnet(x)
+        
+        x = features['out']
+        x = self.segmentation(x)
+        seg = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
+        
+        x = features['out']
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        
+        x = self.fc1(x)
+        x = self.relu(x)
+        cl = self.fc2(x)
+        bb = self.fr1(x)
 
-        z = torch.cat((x.view(x.size(0), -1), y.view(y.size(0), -1)), dim=1)
-        z = self.fc1(z)
-        z = self.relu(z)
-        cl = self.fc2(z)
-        bb = self.fr1(z)
+        return cl, bb, seg
 
-        return cl, bb
+def _reset_conv1(resnet: ResNet):
+    out_channels = resnet.conv1.out_channels
+    kernel_size = resnet.conv1.kernel_size
+    stride = resnet.conv1.stride
+    padding = resnet.conv1.padding
+    bias = resnet.conv1.bias
+    return nn.Conv2d(4, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
 
 
 def depthnet18(pretrained=False, num_classes=1000, **kwargs):
