@@ -1,6 +1,8 @@
 from __future__ import print_function, division
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
+from torch.functional import Tensor
+import torch
 import json
 from os.path import join
 import OpenEXR
@@ -19,7 +21,7 @@ class BlenderDataset(Dataset):
 
         self.classes = []
         with open(join(root_dir, class_fname), 'r') as fd:
-            self.classes = fd.read().splitlines()
+            self.classes = ["background"] + fd.read().splitlines()
         self.json_fnames = []
         with open(join(root_dir, csv_fname), 'r') as fd:
             self.json_fnames = fd.read().splitlines()
@@ -101,11 +103,40 @@ def exr2segmentation(exr, label):
                for Chan in ("R", "G", "B")]
 
     seg = np.array(R) + np.array(G) + np.array(B)
-    seg[seg <= 0] = -1
+    seg[seg <= 0] = 0
     seg[seg > 0] = label
-    seg = seg.astype(np.float32).reshape(sz[1], -1)
+    seg = seg.astype(np.int64).reshape(sz[1], -1)
 
     return seg
+
+
+def segmentation2rgb(segmentations, nc=54):
+    import random
+
+    def id_to_random_color(number):
+        if number == 0:
+            return (0, 0, 0)
+        random.seed(number)
+        r = random.randrange(start=0, stop=256)
+        g = random.randrange(start=0, stop=256)
+        b = random.randrange(start=0, stop=256)
+        return r, g, b
+
+    rgbs = []
+
+    for segmentation in segmentations.squeeze():
+        r = np.zeros_like(segmentation).astype(np.uint8)
+        g = np.zeros_like(segmentation).astype(np.uint8)
+        b = np.zeros_like(segmentation).astype(np.uint8)
+
+        for l in range(0, nc):
+            idx = segmentation == l
+            r[idx], g[idx], b[idx] = id_to_random_color(l)
+
+        rgb = torch.tensor(np.stack([r, g, b], axis=0))
+        rgbs.append(rgb)
+
+    return torch.stack(rgbs, 0)
 
 
 def test_dataset():
@@ -113,10 +144,9 @@ def test_dataset():
     from torchvision import transforms
     transform_val = transforms.Compose([
         transforms.ToTensor(),
-        transforms.ToPILImage(),
         transforms.Resize((256, 256)),
-        transforms.ToTensor(),
     ])
+
     blender_data = BlenderDataset(
         root, "train.csv", "class.csv", render_transform=transform_val, depth_transform=transform_val, albedo_transform=transform_val, train=True)
     print(blender_data.num_classes)
@@ -140,7 +170,8 @@ def test_dataset():
     fig.add_subplot(3, 1, 2)
     plt.imshow(np.transpose(npdepth, (1, 2, 0)))
 
-    npseg = torchvision.utils.make_grid(segmentations).numpy()
+    npseg = torchvision.utils.make_grid(
+        segmentation2rgb(segmentations)).numpy()
     fig.add_subplot(3, 1, 3)
     plt.imshow(np.transpose(npseg, (1, 2, 0)))
 

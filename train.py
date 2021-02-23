@@ -31,14 +31,14 @@ def get_args():
 def loss_function(prediction, target, num_classes) -> Tensor:
     p_labels, p_bboxes, p_seg_masks = prediction
     t_labels, t_bboxes, t_seg_masks = target
+
     loss_labels = F.cross_entropy(p_labels, t_labels, reduction="sum")
 
     loss_bboxes = F.l1_loss(p_bboxes, t_bboxes, reduction="none")
     loss_bboxes = loss_bboxes.sum(1).sum()
 
-    x = torch.argmax(p_seg_masks, dim=1)
-    loss_seg_masks = F.l1_loss(x, t_seg_masks.squeeze(1), reduction="none")
-    loss_seg_masks = loss_seg_masks.sum((1, 2)).sum()
+    loss_seg_masks = F.cross_entropy(
+        p_seg_masks, t_seg_masks.squeeze(1), reduction="sum")
 
     loss: Tensor = loss_labels + loss_bboxes / \
         num_classes + loss_seg_masks / num_classes
@@ -58,26 +58,19 @@ if __name__ == '__main__':
 
     render_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.ToPILImage(),
         transforms.Resize((256, 256)),
-        transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
 
     depth_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.ToPILImage(),
         transforms.Resize((256, 256)),
-        transforms.ToTensor(),
         transforms.Normalize((0.5,), (0.5,)),
     ])
 
     seg_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.ToPILImage(),
         transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,)),
     ])
 
     train_dataset = BlenderDataset(root_dir=args.dataset_path, csv_fname='train.csv', class_fname='class.csv',
@@ -104,15 +97,15 @@ if __name__ == '__main__':
     n_total_steps = len(train_loader)
     for epoch in range(epoch, num_epochs):
         t1 = time()
-        for i, (images, depth_images, labels, bboxes, seg_masks) in enumerate(train_loader):
-            images: Tensor = images.to(device)
+        for i, (rgb_images, depth_images, t_labels, t_bboxes, t_seg_masks) in enumerate(train_loader):
+            rgb_images: Tensor = rgb_images.to(device)
             depth_images: Tensor = depth_images.to(device)
-            labels: Tensor = labels.to(device)
-            bboxes: Tensor = bboxes.to(device)
-            seg_masks: Tensor = seg_masks.to(device)
-            target = (labels, bboxes, seg_masks)
+            t_labels: Tensor = t_labels.to(device)
+            t_bboxes: Tensor = t_bboxes.to(device)
+            t_seg_masks: Tensor = t_seg_masks.to(device)
+            target = (t_labels, t_bboxes, t_seg_masks)
 
-            prediction = model(images, depth_images)
+            prediction = model(rgb_images, depth_images)
             loss = loss_function(prediction, target, num_classes)
 
             optimizer.zero_grad()
