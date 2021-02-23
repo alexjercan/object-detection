@@ -117,17 +117,17 @@ def segmentation2rgb(segmentations, nc=54):
         if number == 0:
             return (0, 0, 0)
         random.seed(number)
-        r = random.randrange(start=0, stop=256)
-        g = random.randrange(start=0, stop=256)
-        b = random.randrange(start=0, stop=256)
+        r = random.random()
+        g = random.random()
+        b = random.random()
         return r, g, b
 
     rgbs = []
 
     for segmentation in segmentations.squeeze():
-        r = np.zeros_like(segmentation).astype(np.uint8)
-        g = np.zeros_like(segmentation).astype(np.uint8)
-        b = np.zeros_like(segmentation).astype(np.uint8)
+        r = np.zeros_like(segmentation).astype(np.float32)
+        g = np.zeros_like(segmentation).astype(np.float32)
+        b = np.zeros_like(segmentation).astype(np.float32)
 
         for l in range(0, nc):
             idx = segmentation == l

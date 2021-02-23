@@ -45,13 +45,7 @@ def print_info(images, bboxes, rbboxes, seg_masks, rseg_masks, predictions, clas
         rbbox = patches.Rectangle((nprbbox[0] * res, (1 - nprbbox[2]) * res), (nprbbox[1] - nprbbox[0])
                                   * res, (nprbbox[2] - nprbbox[3]) * res, linewidth=1, edgecolor='g', facecolor='none')
 
-        npseg = np.tile(npsegs[i], 3)
-        npseg /= np.max(npseg)
-
-        nprseg = np.tile(nprsegs[i], 3)
-        nprseg /= np.max(nprseg)
-
-        img = np.concatenate((npimg, npseg, nprseg), axis=1)
+        img = np.concatenate((npimg, npsegs[i], nprsegs[i]), axis=1)
 
         axs[i // n][i % n].imshow(img)
         axs[i // n][i % n].add_patch(bbox)
@@ -119,10 +113,11 @@ if __name__ == '__main__':
                 bboxes: Tensor = bboxes.to(device)
                 seg_masks: Tensor = seg_masks.to(device)
 
-                out_labels, out_bboxes, out_seg_masks = model(images, depth_images)
+                out_labels, out_bboxes, out_seg_masks = model(
+                    images, depth_images)
 
                 _, predictions = torch.max(out_labels, 1)
-                
+
                 image_samples = torch.cat((image_samples, images))
                 bbox_samples = torch.cat((bbox_samples, out_bboxes))
                 bbox_gts = torch.cat((bbox_gts, bboxes))
