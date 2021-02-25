@@ -15,10 +15,9 @@ class ConvNet(nn.Module):
             resnet, return_layers={'layer4': 'out'})
         self.segmentation = FCNHead(resnet.fc.in_features, num_classes)
 
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Sequential(nn.Linear(resnet.fc.in_features, 512),
-                                nn.ReLU(inplace=True))
         self.relu = nn.ReLU(inplace=True)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(resnet.fc.in_features, 512)
         self.fc1 = nn.Linear(512, 256)
         self.fc2 = nn.Linear(256, num_classes)
         self.fr1 = nn.Linear(256, 4)
@@ -37,6 +36,7 @@ class ConvNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
+        x = self.relu(x)
 
         x = self.fc1(x)
         x = self.relu(x)

@@ -129,7 +129,7 @@ def segmentation2rgb(segmentations, nc=54):
         g = np.zeros_like(segmentation).astype(np.float32)
         b = np.zeros_like(segmentation).astype(np.float32)
 
-        for l in range(0, nc):
+        for l in range(1, nc + 1):
             idx = segmentation == l
             r[idx], g[idx], b[idx] = id_to_random_color(l)
 

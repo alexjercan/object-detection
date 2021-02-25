@@ -38,10 +38,9 @@ def loss_function(prediction, target, num_classes) -> Tensor:
     loss_bboxes = loss_bboxes.sum(1).sum()
 
     loss_seg_masks = F.cross_entropy(
-        p_seg_masks, t_seg_masks.squeeze(1), reduction="sum")
+        p_seg_masks, t_seg_masks.squeeze(1), reduction="mean")
 
-    loss: Tensor = loss_labels + loss_bboxes / \
-        num_classes + loss_seg_masks / num_classes
+    loss: Tensor = loss_labels + loss_bboxes / num_classes + loss_seg_masks
     return loss
 
 
@@ -112,7 +111,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 1000 == 0:
                 print(
                     f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
 
