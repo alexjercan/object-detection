@@ -1,7 +1,7 @@
-torchvision
+torchvision>=0.8.1
 PIL
-torch
+torch>=1.7.1
 OpenEXR
 Imath
-numpy
-matplotlib
+numpy>=1.18.5
+matplotlib>=3.2.2
