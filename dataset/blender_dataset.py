@@ -1,14 +1,12 @@
 from __future__ import print_function, division
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
-from torch.functional import Tensor
 import torch
 import json
+import os
 from os.path import join
-import OpenEXR
-import Imath
-import array
 import numpy as np
+import cv2
 
 
 class BlenderDataset(Dataset):
@@ -53,7 +51,7 @@ class BlenderDataset(Dataset):
         depth_data = exr2depth(depth_path)
 
         albedo_path = join(self.root_dir, albedo_fname)
-        albedo_data = exr2segmentation(albedo_path, label)
+        albedo_data = exr2segmap(albedo_path) * label
 
         if self.render_transform is not None:
             rgb_data = self.render_transform(rgb_data)
@@ -67,47 +65,53 @@ class BlenderDataset(Dataset):
         return rgb_data, depth_data, label, bbox, albedo_data
 
 
-def exr2depth(exr):
-    file = OpenEXR.InputFile(exr)
+def exr2depth(path):
+    """Read depth image as numpy array
 
-    dw = file.header()['dataWindow']
-    sz = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+    Args:
+        path (str): The path to the file
 
-    FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
-    R = [array.array('f', file.channel(Chan, FLOAT)).tolist()
-         for Chan in "R"]
+    Returns:
+        ndarray: Returns an array with the shape WxHx1
+    """
+    if not os.path.isfile(path):
+            return None
+        
+    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE | cv2.IMREAD_ANYDEPTH)
+    
+    # get the maximum value from the array, aka the most distant point
+    # everything above that value is infinite, thus i clamp it to maxvalue
+    # then divide by maxvalue to obtain a normalized map
+    # multiply by 255 to obtain a colormap from the depthmap
+    maxvalue = np.max(np.where(np.isinf(img), -np.Inf, img))
+    img[img > maxvalue] = maxvalue
+    img = img / maxvalue * 255
 
-    img = np.zeros((sz[1], sz[0], 3), np.float64)
-
-    data = np.array(R)
-    minvalue = np.min(data)
-    data -= minvalue
-    maxvalue = np.max(np.where(np.isinf(data), -np.Inf, data))
-    data[data > maxvalue] = maxvalue
-    data /= maxvalue
-
-    img = np.array(data).astype(np.float32).reshape(img.shape[0], -1)
+    img = np.array(img).astype(np.uint8).reshape(img.shape[0], img.shape[1], -1)
 
     return img
 
 
-def exr2segmentation(exr, label):
-    file = OpenEXR.InputFile(exr)
+def exr2segmap(path):
+    """Read segmentation map image as numpy array
 
-    # Compute the size
-    dw = file.header()['dataWindow']
-    sz = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+    Args:
+        path (str): The path to the file
 
-    FLOAT = Imath.PixelType(Imath.PixelType.FLOAT)
-    R, G, B = [array.array('f', file.channel(Chan, FLOAT)).tolist()
-               for Chan in ("R", "G", "B")]
+    Returns:
+        ndarray: Returns an array with the shape WxHx1
+    """
+    if not os.path.isfile(path):
+            return None    
 
-    seg = np.array(R) + np.array(G) + np.array(B)
-    seg[seg <= 0] = 0
-    seg[seg > 0] = label
-    seg = seg.astype(np.int64).reshape(sz[1], -1)
+    img = cv2.imread(path, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
 
-    return seg
+    img = img[..., 0] + img[..., 1] + img[..., 2]
+    img[img <= 0] = 0
+    img[img > 0] = 1
+    img = np.array(img).astype(np.int64).reshape(img.shape[0], img.shape[1], -1)
+
+    return img
 
 
 def segmentation2rgb(segmentations, nc=54):
@@ -149,7 +153,6 @@ def test_dataset():
 
     blender_data = BlenderDataset(
         root, "train.csv", "class.csv", render_transform=transform_val, depth_transform=transform_val, albedo_transform=transform_val, train=True)
-    print(blender_data.num_classes)
     dataloader = DataLoader(blender_data, batch_size=2, shuffle=True)
     for data in dataloader:
         images, depth_images, labels, bboxes, segmentations = data
