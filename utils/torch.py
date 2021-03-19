@@ -6,6 +6,7 @@ import subprocess
 import torch.nn as nn
 
 from pathlib import Path
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def git_describe():
 
 
 def select_device(device='', batch_size=None):
-    s = f'YOLOv5 🚀 {git_describe()} torch {torch.__version__} '  # string
+    s = f'Object-Detection 🚀 {git_describe()} torch {torch.__version__} '  # string
     cpu = device.lower() == 'cpu'
     if cpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -66,3 +67,15 @@ def select_device(device='', batch_size=None):
     logger.info(s.encode().decode('ascii', 'ignore')
                 if platform.system() == 'Windows' else s)
     return torch.device('cuda:0' if cuda else 'cpu')
+
+
+@contextmanager
+def torch_distributed_zero_first(local_rank: int):
+    """
+    Decorator to make all processes in distributed training wait for each local_master to do something.
+    """
+    if local_rank not in [-1, 0]:
+        torch.distributed.barrier()
+    yield
+    if local_rank == 0:
+        torch.distributed.barrier()

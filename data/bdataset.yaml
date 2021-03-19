@@ -1,0 +1,29 @@
+# blenderRenderer 2020
+# Train command: python train.py --data bdataset.yaml
+# Default dataset location is next to /yolov5:
+#   /parent_folder
+#     /bdataset
+#     /yolov5
+
+
+# download command/URL (optional)
+download: bash data/scripts/get_bdataset.sh
+
+# train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
+train: ../bdataset/images/train
+val: ../bdataset/images/train
+test: ../bdataset/images/test
+
+# number of classes
+nc: 54
+
+# class names
+names: [ 'object01', 'object02', 'object03', 'object04', 'object05', 'object06', 'object07', 'object08', 'object09', 'object10',
+         'object11', 'object12', 'object13', 'object14', 'object15', 'object16', 'object17', 'object18', 'object19', 'object20',
+         'object21', 'object22', 'object23', 'object24', 'object25', 'object26', 'object27', 'object28', 'object29', 'object30',
+         'alder_leaf_green', 'apple_leaf_green', 'ash_leaf_green', 'aspen_leaf_green', 'beech_leaf_green', 'birch_leaf_green',
+         'black_poplar_leaf_green', 'blackthorn_leaf_green', 'crack_willow_leaf_green', 'elder_leaf_green', 'field_maple_leaf_green',
+         'goat_willow_leaf_green', 'grey_poplar_leaf_green', 'hawthorn_leaf_green', 'hazel_leaf_green', 'horse_chestnut_leaf_green',
+         'lime_leaf_green', 'oak_leaf_green', 'rowan_leaf_green', 'sweet_chestnut_leaf_green', 'sycamore_leaf_green', 
+         'white_poplar_leaf_green', 'wild_cherry_leaf_green', 'wych_elm_leaf_green' ]
+
