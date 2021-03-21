@@ -83,7 +83,7 @@ if __name__ == '__main__':
     for im0s, layers, labels in loader:
         from common import build_targets
         import matplotlib.pyplot as plt
-        targets = build_targets(labels, anchors, config.S)[0].shape
+        targets = build_targets(labels, len(im0s), anchors, config.S)
         img = plot_images(im0s, labels, fname=None)
         imgplot = plt.imshow(img)
         plt.show()
