@@ -162,12 +162,12 @@ def build_targets(bboxes, anchors, S):
     """[summary]
 
     Args:
-        bboxes (tensor): contains Nx[img,C,X,Y,W,H]
+        bboxes (tensor): contains Nx[img,C,x,y,w,h]
         anchors (list): list of anchors
         S (list): layer scales at detection
 
     Returns:
-        list: NSx[shape(num_achors,S,S,[img,C,x,y,w,h,c])]
+        list: Sx[tensor(num_achors,S,S,[img,C,x,y,w,h,c])]
     """
     anchors = torch.tensor(anchors[0] + anchors[1] + anchors[2])
     num_anchors = anchors.shape[0]
@@ -179,34 +179,25 @@ def build_targets(bboxes, anchors, S):
         box = box.tolist()
         iou_anchors = iou_width_height(torch.tensor(box[4:6]), anchors)
         anchor_indices = iou_anchors.argsort(descending=True, dim=0)
-        img, class_label, x, y, width, height = box
+        img, C, x, y, w, h = box
         has_anchor = [False] * 3
         for anchor_idx in anchor_indices:
             scale_idx = anchor_idx // num_anchors_per_scale
             anchor_on_scale = anchor_idx % num_anchors_per_scale
             s = S[scale_idx]
             i, j = int(s * y), int(s * x)
-            anchor_taken = targets[scale_idx][anchor_on_scale, i, j, 1]
+            anchor_taken = targets[scale_idx][anchor_on_scale, i, j, 6]
             targets[scale_idx][anchor_on_scale, i, j, 0] = img
             if not anchor_taken and not has_anchor[scale_idx]:
                 x_cell, y_cell = s * x - j, s * y - i
-                width_cell, height_cell = (
-                    width * s,
-                    height * s,
-                )
-                box_coordinates = torch.tensor(
-                    [x_cell, y_cell, width_cell, height_cell]
-                )
-                targets[scale_idx][anchor_on_scale,
-                                   i, j, 1] = int(class_label)
-                targets[scale_idx][anchor_on_scale,
-                                   i, j, 2:6] = box_coordinates
+                w_cell, h_cell = w * s,  h * s
+                box_cell = torch.tensor([x_cell, y_cell, w_cell, h_cell])
+                targets[scale_idx][anchor_on_scale, i, j, 1] = int(C)
+                targets[scale_idx][anchor_on_scale, i, j, 2:6] = box_cell
                 targets[scale_idx][anchor_on_scale, i, j, 6] = 1
                 has_anchor[scale_idx] = True
-
             elif not anchor_taken and iou_anchors[anchor_idx] > ignore_iou_thresh:
-                targets[scale_idx][anchor_on_scale,
-                                   i, j, 6] = -1
+                targets[scale_idx][anchor_on_scale, i, j, 6] = -1
 
     return targets
 
