@@ -42,8 +42,5 @@ head:
     [[-1], Conv, [128, 1, 1, 0]],
     [[-1], Conv, [256, 3, 1, 1]],
     [[-1], CNNBlock, []], # input for pred #25
-    [[13], ScalePrediction, []],
-    [[19], ScalePrediction, []],
-    [[25], ScalePrediction, []],
-    [[26, 27, 28], Detect, []]
+    [[13, 19, 25], Detect, []]
   ]

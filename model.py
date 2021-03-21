@@ -78,10 +78,15 @@ class ScalePrediction(nn.Module):
 
 
 class Detect(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, num_classes):
         super().__init__()
+        self.num_predictions = len(in_channels)
+        self.m = nn.ModuleList(ScalePrediction(x, num_classes) for x in in_channels)
 
     def forward(self, *layers):
+        layers = list(layers)
+        for i in range(self.num_predictions):
+            layers[i] = self.m[i](layers[i])
         return layers
 
 
@@ -128,8 +133,8 @@ class Model(nn.Module):
             elif module is ResidualBlock:
                 out_channels = channels[from_layers[0]]
                 args = [out_channels, *args]
-            elif module is ScalePrediction:
-                in_channels = channels[from_layers[0]]
+            elif module is Detect:
+                in_channels = [channels[x] for x in from_layers]
                 args = [in_channels, num_classes]
             elif module is Concat:
                 out_channels = sum([channels[x] for x in from_layers])

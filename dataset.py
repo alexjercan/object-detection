@@ -87,4 +87,4 @@ if __name__ == '__main__':
         img = plot_images(im0s, labels, fname=None)
         imgplot = plt.imshow(img)
         plt.show()
-
+    print("Success!")
