@@ -379,6 +379,7 @@ def check_class_accuracy(model, loader, threshold, device, anchors, S):
 
     for idx, (im0s, x, y) in enumerate(tqdm(loader)):
         x = x.to(device, non_blocking=True).float() / 255.0
+        # sx[(BxAxSxSx[c,x,y,w,h,C])]
         y = build_targets(y, len(im0s), anchors, S)
         with torch.no_grad():
             out = model(x)
@@ -465,24 +466,25 @@ def get_evaluation_bboxes(
     all_true_boxes = []
     for _, (im0s, x, y) in enumerate(tqdm(loader)):
         x = x.to(device, non_blocking=True).float() / 255.0
+        # sx[(BxAxSxSx[c,x,y,w,h,C])]
         y = build_targets(y, len(im0s), anchors, S)
 
         with torch.no_grad():
-            predictions = model(x)
+            predictions = model(x)  # Sx[(BxAxSxSx[c,x,y,w,h,C...])]
 
         batch_size = x.shape[0]
         bboxes = [[] for _ in range(batch_size)]
         for i in range(3):
-            S = predictions[i].shape[2]
-            anchor = torch.tensor([*anchors[i]]).to(device) * S
-            boxes_scale_i = cells_to_bboxes(predictions[i], anchor, 
-                                            S=S, is_preds=True)
+            len_S = predictions[i].shape[2]
+            anchor = torch.tensor([*anchors[i]]).to(device) * len_S
+            boxes_scale_i = cells_to_bboxes(predictions[i], anchor,
+                                            S=len_S, is_preds=True)
             for idx, (box) in enumerate(boxes_scale_i):
                 bboxes[idx] += box
-
+        
         # we just want one bbox for each label, not one for each scale
-        true_bboxes = cells_to_bboxes(y[2], anchor, S=S, is_preds=False)
-
+        true_bboxes = cells_to_bboxes(y[2], anchor, S=len_S, is_preds=False)
+        
         for idx in range(batch_size):
             nms_boxes = non_max_suppression(
                 bboxes[idx],

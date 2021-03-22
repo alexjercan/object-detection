@@ -1,21 +1,46 @@
-from dataset import create_dataloader
+from data.dataset import create_dataloader
 import config
 import torch
 import torch.optim as optim
 
-from model import Model
-from general import train
-from common import (
+from tqdm import tqdm
+from model.model import Model
+from model.loss import LossFunction
+from util.general import (
+    build_targets,
     save_checkpoint,
     load_checkpoint,
     count_channles,
     load_yaml
 )
-from loss import LossFunction
 import warnings
 warnings.filterwarnings("ignore")
 
 torch.backends.cudnn.benchmark = True
+
+
+def train(loader, model, optimizer, loss_fn, scaler, scaled_anchors):
+    loop = tqdm(loader, leave=True)
+    losses = []
+
+    for _, (im0s, layers, labels) in enumerate(loop):
+        targets = build_targets(labels, len(im0s), config.ANCHORS, config.S)
+        targets = [target.to(config.DEVICE) for target in targets]
+        layers = layers.to(config.DEVICE, non_blocking=True).float() / 255.0
+
+        with torch.cuda.amp.autocast():
+            predictions = model(layers)
+            loss = loss_fn(predictions, targets, scaled_anchors)
+
+        losses.append(loss.item())
+        optimizer.zero_grad()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        # update progress bar
+        mean_loss = sum(losses) / len(losses)
+        loop.set_postfix(loss=mean_loss)
 
 
 if __name__ == "__main__":

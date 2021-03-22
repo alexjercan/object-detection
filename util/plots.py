@@ -7,7 +7,7 @@ import cv2
 
 from PIL import Image
 from pathlib import Path
-from common import xywh2xyxy
+from util.general import xywh2xyxy
 
 
 def color_list():

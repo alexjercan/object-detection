@@ -1,8 +1,8 @@
-from plots import plot_images
-import torch
-import numpy as np
+from util.general import L_RGB, load_data, load_img_paths, load_label_paths
+from util.plots import plot_images
 from torch.utils.data import Dataset, DataLoader
-from common import L_RGB, load_data, load_img_paths, load_label_paths
+import numpy as np
+import torch
 
 
 def create_dataloader(img_dir, label_dir, image_size, batch_size, S, anchors, transform, used_layers=[L_RGB]):
@@ -71,21 +71,3 @@ class BDataset(Dataset):
         for i, l in enumerate(label):
             l[:, 0] = i  # add target image index for build_targets()
         return torch.stack(img, 0), torch.stack(layer, 0), torch.cat(label, 0)
-
-
-if __name__ == '__main__':
-    import config
-    scaled_anchors = torch.tensor(config.ANCHORS) / (
-        1 / torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
-    )
-    dataset, loader = create_dataloader("../bdataset/images/train", "../bdataset/labels/train", image_size=config.IMAGE_SIZE,
-                                        batch_size=2, S=config.S, anchors=config.ANCHORS, transform=config.test_transforms)
-    for im0s, layers, labels in loader:
-        from common import build_targets
-        import matplotlib.pyplot as plt
-        targets = build_targets(labels, len(im0s), config.ANCHORS, config.S)
-        img = plot_images(im0s, labels, fname=None)
-        imgplot = plt.imshow(img)
-        plt.show()
-        break
-    print("Success!")

@@ -7,7 +7,7 @@ import random
 import torch
 import torch.nn as nn
 
-from common import intersection_over_union
+from util.general import intersection_over_union
 
 
 class LossFunction(nn.Module):

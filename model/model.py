@@ -1,14 +1,12 @@
-import yaml
-import torch
 import torch.nn as nn
+import torch
 
-from pathlib import Path
-from common import count_channles
 
 class Conv(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=1, stride=1, padding=0):
         super().__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=False)
+        self.conv = nn.Conv2d(in_channels, out_channels,
+                              kernel_size, stride, padding, bias=False)
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.LeakyReLU(0.1)
 
@@ -81,7 +79,8 @@ class Detect(nn.Module):
     def __init__(self, in_channels, num_classes):
         super().__init__()
         self.num_predictions = len(in_channels)
-        self.m = nn.ModuleList(ScalePrediction(x, num_classes) for x in in_channels)
+        self.m = nn.ModuleList(ScalePrediction(x, num_classes)
+                               for x in in_channels)
 
     def forward(self, *layers):
         layers = list(layers)
@@ -143,19 +142,5 @@ class Model(nn.Module):
             if i == 0:
                 channels = []
             channels.append(out_channels)
-                
 
         return layers
-
-
-if __name__ == "__main__":
-    in_channels = 9
-    num_classes = 20
-    IMAGE_SIZE = 416
-    model = Model("model.yaml", in_channels, num_classes)
-    x = torch.randn((2, in_channels, IMAGE_SIZE, IMAGE_SIZE))
-    out = model(x)
-    assert model(x)[0].shape == (2, 3, IMAGE_SIZE//32, IMAGE_SIZE//32, num_classes + 5)
-    assert model(x)[1].shape == (2, 3, IMAGE_SIZE//16, IMAGE_SIZE//16, num_classes + 5)
-    assert model(x)[2].shape == (2, 3, IMAGE_SIZE//8, IMAGE_SIZE//8, num_classes + 5)
-    print("Success!")

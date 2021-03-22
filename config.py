@@ -3,7 +3,7 @@ import cv2
 import torch
 
 from albumentations.pytorch import ToTensorV2
-from common import seed_everything, L_RGB, L_DEPTH, L_NORMAL
+from util.general import seed_everything, L_RGB, L_DEPTH, L_NORMAL
 
 MODEL_DICT="model.yaml"
 DATASET = 'bdataset'

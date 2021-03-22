@@ -1,16 +1,29 @@
-from general import test
 import config
 import torch.optim as optim
 
-from dataset import create_dataloader
-from model import Model
-from common import (
+from data.dataset import create_dataloader
+from model.model import Model
+from util.general import (
+    check_class_accuracy,
+    get_evaluation_bboxes,
+    mean_average_precision,
     count_channles,
     load_yaml,
     load_checkpoint,
 )
 import warnings
 warnings.filterwarnings("ignore")
+
+
+def test(loader, model):
+    check_class_accuracy(model, loader, threshold=config.CONF_THRESHOLD,
+                         device=config.DEVICE, anchors=config.ANCHORS, S=config.S)
+    pred_boxes, true_boxes = get_evaluation_bboxes(loader, model, iou_threshold=config.NMS_IOU_THRESH,
+                                                   anchors=config.ANCHORS, threshold=config.CONF_THRESHOLD,
+                                                   S=config.S, device=config.DEVICE)
+    mapval = mean_average_precision(pred_boxes, true_boxes, iou_threshold=config.MAP_IOU_THRESH,
+                                    box_format="midpoint", num_classes=config.NUM_CLASSES)
+    print(f"MAP: {mapval.item()}")
 
 
 if __name__ == "__main__":
