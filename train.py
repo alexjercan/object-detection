@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     dataset, loader = create_dataloader(config.IMG_DIR + "/train", config.LABEL_DIR + "/train", image_size=config.IMAGE_SIZE,
                                         batch_size=config.BATCH_SIZE, S=config.S, anchors=config.ANCHORS,
-                                        transform=config.test_transforms, used_layers=config.LAYERS)
+                                        transform=None, used_layers=config.LAYERS)
 
     if config.LOAD_MODEL:
         load_checkpoint(config.CHECKPOINT_FILE, model, optimizer,

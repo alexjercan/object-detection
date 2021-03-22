@@ -36,7 +36,7 @@ if __name__ == "__main__":
                            weight_decay=config.WEIGHT_DECAY)
     dataset, loader = create_dataloader(config.IMG_DIR + "/test", config.LABEL_DIR + "/test", image_size=config.IMAGE_SIZE,
                                         batch_size=config.BATCH_SIZE, S=config.S, anchors=config.ANCHORS,
-                                        transform=config.test_transforms, used_layers=config.LAYERS)
+                                        transform=None, used_layers=config.LAYERS)
 
     load_checkpoint(config.CHECKPOINT_FILE, model, optimizer,
                     config.LEARNING_RATE, config.DEVICE)
