@@ -1,12 +1,12 @@
+import torch
 import config
 import torch.optim as optim
 
+from tqdm import tqdm
 from data.dataset import create_dataloader
 from model.model import Model
 from util.general import (
-    check_class_accuracy,
-    get_evaluation_bboxes,
-    mean_average_precision,
+    build_targets, 
     count_channles,
     load_yaml,
     load_checkpoint,
@@ -15,15 +15,39 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def test(loader, model):
-    check_class_accuracy(model, loader, threshold=config.CONF_THRESHOLD,
-                         device=config.DEVICE, anchors=config.ANCHORS, S=config.S)
-    pred_boxes, true_boxes = get_evaluation_bboxes(loader, model, iou_threshold=config.NMS_IOU_THRESH,
-                                                   anchors=config.ANCHORS, threshold=config.CONF_THRESHOLD,
-                                                   S=config.S, device=config.DEVICE)
-    mapval = mean_average_precision(pred_boxes, true_boxes, iou_threshold=config.MAP_IOU_THRESH,
-                                    box_format="midpoint", num_classes=config.NUM_CLASSES)
-    print(f"MAP: {mapval.item()}")
+def test(loader, model):    
+    model.eval()
+    tot_class_preds, correct_class = 0, 0
+    tot_noobj, correct_noobj = 0, 0
+    tot_obj, correct_obj = 0, 0
+
+    for idx, (im0s, x, y) in enumerate(tqdm(loader)):
+        x = x.to(config.DEVICE, non_blocking=True).float() / 255.0
+        # sx[(BxAxSxSx[c,x,y,w,h,C])]
+        y = build_targets(y, len(im0s), config.ANCHORS, config.S)
+        with torch.no_grad():
+            out = model(x)
+
+        for i in range(3):
+            y[i] = y[i].to(config.DEVICE)
+            obj = y[i][..., 0] == 1  # in paper this is Iobj_i
+            noobj = y[i][..., 0] == 0  # in paper this is Iobj_i
+
+            correct_class += torch.sum(
+                torch.argmax(out[i][..., 5:][obj], dim=-1) == y[i][..., 5][obj]
+            )
+            tot_class_preds += torch.sum(obj)
+
+            obj_preds = torch.sigmoid(out[i][..., 0]) > config.CONF_THRESHOLD
+            correct_obj += torch.sum(obj_preds[obj] == y[i][..., 0][obj])
+            tot_obj += torch.sum(obj)
+            correct_noobj += torch.sum(obj_preds[noobj] == y[i][..., 0][noobj])
+            tot_noobj += torch.sum(noobj)
+
+    print(f"Class accuracy: {(correct_class/(tot_class_preds+1e-16))*100:2f}%")
+    print(f"No obj accuracy: {(correct_noobj/(tot_noobj+1e-16))*100:2f}%")
+    print(f"Obj accuracy: {(correct_obj/(tot_obj+1e-16))*100:2f}%")
+    model.train()
 
 
 if __name__ == "__main__":
