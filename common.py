@@ -1,6 +1,7 @@
 import os
 import cv2
 import glob
+import yaml
 import torch
 import random
 import numpy as np
@@ -21,6 +22,11 @@ CHANNELS = {L_RGB: 3, L_DEPTH: 3, L_NORMAL: 3}
 
 def count_channles(layers):
     return sum([CHANNELS[chan] for chan in layers])
+
+
+def load_yaml(cfg):
+    with open(cfg) as f:
+        return yaml.load(f, Loader=yaml.SafeLoader)
 
 
 def load_img_paths(path: str, used_layers: List):
@@ -407,6 +413,27 @@ def build_targets(bboxes, im0s, anchors, S):
                 targets[scale_idx][img, anchor_on_scale, i, j, 0] = -1
 
     return targets
+
+
+def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
+    print("=> Saving checkpoint")
+    checkpoint = {
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+    }
+    torch.save(checkpoint, filename)
+
+
+def load_checkpoint(checkpoint_file, model, optimizer, lr, device):
+    print("=> Loading checkpoint")
+    checkpoint = torch.load(checkpoint_file, map_location=device)
+    model.load_state_dict(checkpoint["state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+
+    # If we don't do this then it will just have learning rate of old checkpoint
+    # and it will lead to many hours of debugging \:
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
 
 
 def seed_everything(seed=42):

@@ -91,13 +91,11 @@ class Detect(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, model_dict, in_channels, num_classes):
         super().__init__()
-        self.yaml_file = Path(cfg).name
-        with open(cfg) as f:
-            self.model_dict = yaml.load(f, Loader=yaml.SafeLoader)
-        self.in_channels = count_channles(self.model_dict['layers'])
-        self.num_classes = self.model_dict["num_classes"]
+        self.model_dict = model_dict
+        self.in_channels = in_channels
+        self.num_classes = num_classes
         self.layers = self._create_layers()
 
     def forward(self, x):
@@ -151,10 +149,11 @@ class Model(nn.Module):
 
 
 if __name__ == "__main__":
+    in_channels = 9
     num_classes = 20
     IMAGE_SIZE = 416
-    model = Model("model.yaml")
-    x = torch.randn((2, 9, IMAGE_SIZE, IMAGE_SIZE))
+    model = Model("model.yaml", in_channels, num_classes)
+    x = torch.randn((2, in_channels, IMAGE_SIZE, IMAGE_SIZE))
     out = model(x)
     assert model(x)[0].shape == (2, 3, IMAGE_SIZE//32, IMAGE_SIZE//32, num_classes + 5)
     assert model(x)[1].shape == (2, 3, IMAGE_SIZE//16, IMAGE_SIZE//16, num_classes + 5)

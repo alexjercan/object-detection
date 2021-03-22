@@ -5,6 +5,14 @@ from torch.utils.data import Dataset, DataLoader
 from common import L_RGB, load_data, load_img_paths, load_label_paths
 
 
+def create_dataloader(img_dir, label_dir, image_size, batch_size, S, anchors, transform, used_layers=[L_RGB]):
+    dataset = BDataset(img_dir, label_dir, image_size=image_size, S=S,
+                       anchors=anchors, transform=transform, used_layers=used_layers)
+    loader = DataLoader(dataset=dataset, batch_size=batch_size,
+                        shuffle=True, collate_fn=BDataset.collate_fn)
+    return dataset, loader
+
+
 class BDataset(Dataset):
     def __init__(
         self,
@@ -51,7 +59,7 @@ class BDataset(Dataset):
 
         img0 = np.ascontiguousarray(img0)
         layers = np.ascontiguousarray(layers)
-        
+
         labels_out = torch.zeros((len(labels), 6))
         labels_out[:, 1:] = torch.from_numpy(labels)
 
@@ -64,26 +72,18 @@ class BDataset(Dataset):
             l[:, 0] = i  # add target image index for build_targets()
         return torch.stack(img, 0), torch.stack(layer, 0), torch.cat(label, 0)
 
+
 if __name__ == '__main__':
     import config
-    anchors = config.ANCHORS
-    transform = config.test_transforms
-    scaled_anchors = torch.tensor(anchors) / (
+    scaled_anchors = torch.tensor(config.ANCHORS) / (
         1 / torch.tensor(config.S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
     )
-    dataset = BDataset("../bdataset/images/train",
-                       "../bdataset/labels/train",
-                       image_size=config.IMAGE_SIZE,
-                       S=config.S,
-                       anchors=anchors,
-                       transform=transform,)
-    loader = DataLoader(dataset=dataset, batch_size=2,
-                        shuffle=True, collate_fn=BDataset.collate_fn)
-
+    dataset, loader = create_dataloader("../bdataset/images/train", "../bdataset/labels/train", image_size=config.IMAGE_SIZE,
+                                        batch_size=2, S=config.S, anchors=config.ANCHORS, transform=config.test_transforms)
     for im0s, layers, labels in loader:
         from common import build_targets
         import matplotlib.pyplot as plt
-        targets = build_targets(labels, len(im0s), anchors, config.S)
+        targets = build_targets(labels, len(im0s), config.ANCHORS, config.S)
         img = plot_images(im0s, labels, fname=None)
         imgplot = plt.imshow(img)
         plt.show()
