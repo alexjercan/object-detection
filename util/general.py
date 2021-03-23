@@ -489,7 +489,7 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
     return output
 
 
-def build_map_boxes(predictions, labels, train_idx, conf_thres, iou_thres):
+def build_map_boxes(predictions, labels, train_idx, conf_thres, iou_thres, device):
     # predictions [(BxAxSxSx(NC+5))]x|S|
     # labels (NLx6)
     bs = predictions[0].shape[0]
@@ -503,13 +503,13 @@ def build_map_boxes(predictions, labels, train_idx, conf_thres, iou_thres):
     
     pred_boxes = []
     for i, p in enumerate(predictions):
-        idx = torch.ones((p.shape[0], 1)) * idxs[i]
+        idx = torch.ones((p.shape[0], 1)).to(device) * idxs[i]
         pred_boxes += torch.cat((idx, p[:, 5:], p[:, :5]), dim=1).tolist()
     
     true_boxes = []
     labels[:, 2:] = xywh2xyxy(labels[:, 2:])
-    probs = torch.ones((labels.shape[0], 1))
-    idxs = torch.tensor([idxs[int(i)] for i in labels[:, 0]]).unsqueeze(1)
+    probs = torch.ones((labels.shape[0], 1)).to(device)
+    idxs = torch.tensor([idxs[int(i)] for i in labels[:, 0]]).unsqueeze(1).to(device)
     true_boxes = torch.cat((idxs, labels[:, 1:2], probs, labels[:, 2:]), dim=1).tolist()
 
     return pred_boxes, true_boxes, train_idx

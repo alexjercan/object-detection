@@ -51,7 +51,7 @@ def test(loader, model):
             tot_noobj += torch.sum(noobj)
 
         pred_boxes, true_boxes, train_idx = build_map_boxes(out, labels, train_idx, conf_thres=config.CONF_THRESHOLD, 
-                                                 iou_thres=config.NMS_IOU_THRESH)
+                                                 iou_thres=config.NMS_IOU_THRESH, device=config.DEVICE)
         all_pred_boxes += pred_boxes
         all_true_boxes += true_boxes
 
