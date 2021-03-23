@@ -6,7 +6,7 @@ from tqdm import tqdm
 from data.dataset import create_dataloader
 from model.model import Model
 from util.general import (
-    build_targets,
+    build_map_boxes, build_targets,
     count_channles,
     load_yaml,
     load_checkpoint, mean_average_precision, non_max_suppression,
@@ -20,6 +20,9 @@ def test(loader, model):
     tot_class_preds, correct_class = 0, 0
     tot_noobj, correct_noobj = 0, 0
     tot_obj, correct_obj = 0, 0
+    train_idx = 0
+    all_pred_boxes = []
+    all_true_boxes = []
 
     for idx, (im0s, layersx, labels) in enumerate(tqdm(loader)):
         layers = layersx.to(config.DEVICE, non_blocking=True).float() / 255.0
@@ -47,13 +50,18 @@ def test(loader, model):
                                        == targets[i][..., 0][noobj])
             tot_noobj += torch.sum(noobj)
 
-        out = torch.cat([o.reshape(len(im0s), -1, o.shape[4]) for o in out], 1)
-        out = non_max_suppression(
-            out, conf_thres=config.CONF_THRESHOLD, iou_thres=config.NMS_IOU_THRESH, multi_label=True)
+        pred_boxes, true_boxes, train_idx = build_map_boxes(out, labels, train_idx, conf_thres=config.CONF_THRESHOLD, 
+                                                 iou_thres=config.NMS_IOU_THRESH)
+        all_pred_boxes += pred_boxes
+        all_true_boxes += true_boxes
 
     print(f"Class accuracy: {(correct_class/(tot_class_preds+1e-16))*100:2f}%")
     print(f"No obj accuracy: {(correct_noobj/(tot_noobj+1e-16))*100:2f}%")
     print(f"Obj accuracy: {(correct_obj/(tot_obj+1e-16))*100:2f}%")
+    
+    mapval = mean_average_precision(pred_boxes, true_boxes, iou_threshold=config.MAP_IOU_THRESH,
+                            box_format="midpoint", num_classes=config.NUM_CLASSES)
+    print(f"MAP: {mapval.item()}")
     model.train()
 
 
