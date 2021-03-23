@@ -9,7 +9,7 @@ from util.general import (
     build_targets, 
     count_channles,
     load_yaml,
-    load_checkpoint,
+    load_checkpoint, non_max_suppression,
 )
 import warnings
 warnings.filterwarnings("ignore")
@@ -21,28 +21,33 @@ def test(loader, model):
     tot_noobj, correct_noobj = 0, 0
     tot_obj, correct_obj = 0, 0
 
-    for idx, (im0s, x, y) in enumerate(tqdm(loader)):
-        x = x.to(config.DEVICE, non_blocking=True).float() / 255.0
-        # sx[(BxAxSxSx[c,x,y,w,h,C])]
-        y = build_targets(y, len(im0s), config.ANCHORS, config.S)
-        with torch.no_grad():
-            out = model(x)
+    for idx, (im0s, layersx, labels) in enumerate(tqdm(loader)):
+        layers = layersx.to(config.DEVICE, non_blocking=True).float() / 255.0
+        labels = labels.to(config.DEVICE)
 
-        for i in range(3):
-            y[i] = y[i].to(config.DEVICE)
-            obj = y[i][..., 0] == 1  # in paper this is Iobj_i
-            noobj = y[i][..., 0] == 0  # in paper this is Iobj_i
+        with torch.no_grad():
+            out = model(layers)
+
+        targets = build_targets(labels, len(im0s), config.ANCHORS, config.S)
+        for i in range(len(targets)):
+            targets[i] = targets[i].to(config.DEVICE)
+            obj = targets[i][..., 0] == 1  # in paper this is Iobj_i
+            noobj = targets[i][..., 0] == 0  # in paper this is Iobj_i
 
             correct_class += torch.sum(
-                torch.argmax(out[i][..., 5:][obj], dim=-1) == y[i][..., 5][obj]
+                torch.argmax(out[i][..., 5:][obj], dim=-1) == targets[i][..., 5][obj]
             )
             tot_class_preds += torch.sum(obj)
 
             obj_preds = torch.sigmoid(out[i][..., 0]) > config.CONF_THRESHOLD
-            correct_obj += torch.sum(obj_preds[obj] == y[i][..., 0][obj])
+            correct_obj += torch.sum(obj_preds[obj] == targets[i][..., 0][obj])
             tot_obj += torch.sum(obj)
-            correct_noobj += torch.sum(obj_preds[noobj] == y[i][..., 0][noobj])
+            correct_noobj += torch.sum(obj_preds[noobj] == targets[i][..., 0][noobj])
             tot_noobj += torch.sum(noobj)
+
+        out = torch.cat([o.reshape(len(im0s), -1, o.shape[4]) for o in out], 1)
+        out = non_max_suppression(out, conf_thres=config.CONF_THRESHOLD, iou_thres=config.NMS_IOU_THRESH, multi_label=True)
+    
 
     print(f"Class accuracy: {(correct_class/(tot_class_preds+1e-16))*100:2f}%")
     print(f"No obj accuracy: {(correct_noobj/(tot_noobj+1e-16))*100:2f}%")
