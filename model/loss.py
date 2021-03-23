@@ -49,7 +49,7 @@ class LossFunction(nn.Module):
             a = a.reshape(1, 3, 1, 1, 2)
             box_preds = torch.cat(
                 [self.sigmoid(p[..., 1:3]), torch.exp(p[..., 3:5]) * a], dim=-1)
-            ious = intersection_over_union(box_preds[obj], 
+            ious = intersection_over_union(box_preds[obj],
                                            t[..., 1:5][obj]).detach()
             object_loss += self.mse(self.sigmoid(p[..., 0:1][obj]),
                                     ious * t[..., 0:1][obj])

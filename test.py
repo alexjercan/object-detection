@@ -6,16 +6,16 @@ from tqdm import tqdm
 from data.dataset import create_dataloader
 from model.model import Model
 from util.general import (
-    build_targets, 
+    build_targets,
     count_channles,
     load_yaml,
-    load_checkpoint, non_max_suppression,
+    load_checkpoint, mean_average_precision, non_max_suppression,
 )
 import warnings
 warnings.filterwarnings("ignore")
 
 
-def test(loader, model):    
+def test(loader, model):
     model.eval()
     tot_class_preds, correct_class = 0, 0
     tot_noobj, correct_noobj = 0, 0
@@ -35,19 +35,21 @@ def test(loader, model):
             noobj = targets[i][..., 0] == 0  # in paper this is Iobj_i
 
             correct_class += torch.sum(
-                torch.argmax(out[i][..., 5:][obj], dim=-1) == targets[i][..., 5][obj]
+                torch.argmax(out[i][..., 5:][obj], dim=-
+                             1) == targets[i][..., 5][obj]
             )
             tot_class_preds += torch.sum(obj)
 
             obj_preds = torch.sigmoid(out[i][..., 0]) > config.CONF_THRESHOLD
             correct_obj += torch.sum(obj_preds[obj] == targets[i][..., 0][obj])
             tot_obj += torch.sum(obj)
-            correct_noobj += torch.sum(obj_preds[noobj] == targets[i][..., 0][noobj])
+            correct_noobj += torch.sum(obj_preds[noobj]
+                                       == targets[i][..., 0][noobj])
             tot_noobj += torch.sum(noobj)
 
         out = torch.cat([o.reshape(len(im0s), -1, o.shape[4]) for o in out], 1)
-        out = non_max_suppression(out, conf_thres=config.CONF_THRESHOLD, iou_thres=config.NMS_IOU_THRESH, multi_label=True)
-    
+        out = non_max_suppression(
+            out, conf_thres=config.CONF_THRESHOLD, iou_thres=config.NMS_IOU_THRESH, multi_label=True)
 
     print(f"Class accuracy: {(correct_class/(tot_class_preds+1e-16))*100:2f}%")
     print(f"No obj accuracy: {(correct_noobj/(tot_noobj+1e-16))*100:2f}%")
