@@ -1,9 +1,3 @@
-"""
-Implementation of Yolo Loss Function similar to the one in Yolov3 paper,
-the difference from what I can tell is I use CrossEntropy for the classes
-instead of BinaryCrossEntropy.
-"""
-import random
 import torch
 import torch.nn as nn
 
